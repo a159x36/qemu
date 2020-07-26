@@ -28,6 +28,7 @@
 #include "hw/timer/esp32_frc_timer.h"
 #include "hw/timer/esp32_timg.h"
 #include "hw/ssi/esp32_spi.h"
+#include "hw/ssi/esp32_spi_st7789v.h"
 #include "hw/nvram/esp32_efuse.h"
 #include "hw/xtensa/xtensa_memory.h"
 #include "hw/misc/unimp.h"
@@ -100,6 +101,8 @@ typedef struct Esp32SocState {
     Esp32FrcTimerState frc_timer[ESP32_FRC_COUNT];
     Esp32TimgState timg[ESP32_TIMG_COUNT];
     Esp32SpiState spi[ESP32_SPI_COUNT];
+    Esp32Spi2State spi2;
+    Esp32SpiState spi3;
     Esp32ShaState sha;
     Esp32EfuseState efuse;
     DeviceState *eth;
@@ -201,6 +204,8 @@ static void esp32_soc_reset(DeviceState *dev)
         for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
             device_cold_reset(DEVICE(&s->spi[i]));
         }
+	device_cold_reset(DEVICE(&s->spi2));
+	device_cold_reset(DEVICE(&s->spi3));
         device_cold_reset(DEVICE(&s->efuse));
         if (s->eth) {
             device_cold_reset(s->eth);
@@ -416,18 +421,29 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
                                     qdev_get_gpio_in_named(dev, ESP32_TIMG_WDT_SYS_RESET_GPIO, i));
     }
     s->timg[0].wdt_en_at_reset = true;
-
-    for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
         const hwaddr spi_base[] = {
             DR_REG_SPI0_BASE, DR_REG_SPI1_BASE, DR_REG_SPI2_BASE, DR_REG_SPI3_BASE
         };
+
+    for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
         object_property_set_bool(OBJECT(&s->spi[i]), true, "realized", &error_abort);
 
         esp32_soc_add_periph_device(sys_mem, &s->spi[i], spi_base[i]);
 
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi[i]), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + i));
+
     }
+    object_property_set_bool(OBJECT(&s->spi2), true, "realized", &error_abort);
+    esp32_soc_add_periph_device(sys_mem, &s->spi2, spi_base[2]);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_SPI2_INTR_SOURCE ));
+    object_property_set_bool(OBJECT(&s->spi3), true, "realized", &error_abort);
+    esp32_soc_add_periph_device(sys_mem, &s->spi3, spi_base[3]);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi3), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_SPI3_INTR_SOURCE ));
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2),0, qdev_get_gpio_in(intmatrix_dev, ETS_SPI2_DMA_INTR_SOURCE));
+
 
     object_property_set_bool(OBJECT(&s->rng), true, "realized", &error_abort);
     esp32_soc_add_periph_device(sys_mem, &s->rng, ESP32_RNG_BASE);
@@ -518,6 +534,10 @@ static void esp32_soc_init(Object *obj)
         object_initialize_child(obj, name, &s->spi[i], sizeof(s->spi[i]),
                                 TYPE_ESP32_SPI, &error_abort, NULL);
     }
+    object_initialize_child(obj, "spi2", &s->spi2, sizeof(s->spi2),
+                                TYPE_ESP32_ST7789V, &error_abort, NULL);
+    object_initialize_child(obj, "spi3", &s->spi3, sizeof(s->spi3),
+                                TYPE_ESP32_SPI, &error_abort, NULL);
 
     object_initialize_child(obj, "rng", &s->rng, sizeof(s->rng),
                             TYPE_ESP32_RNG, &error_abort, NULL);
