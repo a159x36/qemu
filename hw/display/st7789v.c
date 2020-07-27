@@ -33,7 +33,13 @@ enum {
 #define ESP32_SPI_REG_SIZE    0x1000
 
 static void esp32_spi_do_command(Esp32Spi2State* state, uint32_t cmd_reg);
+void update_irq(Esp32Spi2State *s);
 
+void update_irq(Esp32Spi2State *s) {
+    if(s->slave_reg & 0x200)
+          qemu_irq_raise(s->irq);
+
+}
 static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size)
 {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
@@ -84,8 +90,7 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size)
     }
     if(DEBUG)
       qemu_log("spi_read %lx, %lx\n",addr, r);
-    if(s->slave_reg & 0x200)
-          qemu_set_irq(s->irq,s->slave_reg&0x10?1:0);
+    update_irq(s);
     return r;
 }
 
@@ -145,8 +150,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr,
        break;
 
     }
-    if(s->slave_reg & 0x200)
-          qemu_set_irq(s->irq,s->slave_reg&0x10?1:0);
+    update_irq(s);
 }
 
 typedef struct Esp32Spi2Transaction {
@@ -329,14 +333,16 @@ static void esp32_spi_init(Object *obj)
     memory_region_init_io(&s->iomem, obj, &esp32_spi_ops, s,
                           TYPE_ESP32_ST7789V, ESP32_SPI_REG_SIZE);
     sysbus_init_mmio(sbd, &s->iomem);
-    sysbus_init_irq(sbd, &s->irq);
+//    sysbus_init_irq(sbd, &s->irq);
 //    sysbus_init_irq(sbd, &s->irq_dma);
 
 //    qemu_irq dma_irq=qdev_get_gpio_in(DEVICE(&s->dport.intmatrix), ETS_SPI2_DMA_INTR_SOURCE);
-    sysbus_init_irq(sbd, &s->dma_irq);
+//    sysbus_init_irq(sbd, &s->dma_irq);
     
     s->spi = ssi_create_bus(DEVICE(s), "spi");
-    //qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS, ESP32_SPI2_CS_COUNT);
+//    qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS, ESP32_SPI2_CS_COUNT);
+ qdev_init_gpio_out_named(DEVICE(s),&s->irq,SYSBUS_DEVICE_GPIO_IRQ, 1);
+   printf("spi irq=%x\n",(s->irq).n); 
 
 }
 

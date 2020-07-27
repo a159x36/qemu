@@ -442,7 +442,7 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_periph_device(sys_mem, &s->spi3, spi_base[3]);
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi3), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI3_INTR_SOURCE ));
-    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2),0, qdev_get_gpio_in(intmatrix_dev, ETS_SPI2_DMA_INTR_SOURCE));
+//    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2),0, qdev_get_gpio_in(intmatrix_dev, ETS_SPI2_DMA_INTR_SOURCE));
 
 
     object_property_set_bool(OBJECT(&s->rng), true, "realized", &error_abort);
