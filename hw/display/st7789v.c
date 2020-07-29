@@ -20,10 +20,11 @@
 #include "hw/ssi/esp32_spi_st7789v.h"
 #include "hw/ssi/ssi.h"
 #include "hw/sysbus.h"
+#include "exec/address-spaces.h"
 
 #include "ui/console.h"
 
-#define DEBUG 1
+#define DEBUG 0
 
 enum {
     CMD_CASET = 0x2a,
@@ -96,6 +97,9 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size) {
         case A_SPI2_DMA_OUT_LINK:
             r = s->outlink_reg;
             break;
+        case A_SPI2_DMA_CONF:
+            r = s->dmaconfig_reg;
+            break;
     }
     if (DEBUG) qemu_log("spi_read %lx, %lx\n", addr, r);
     //update_irq(s);
@@ -159,10 +163,26 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
 
         case A_SPI2_DMA_OUT_LINK:
             s->outlink_reg = value;
-            if ((value & 0xfffff) != 0) {
+            if ((value & 0x20000000)) {
+                unsigned s = (0x3ff00000 + (value & 0xfffff));
+                int v[3];
+              //  MemoryRegion* sys_mem = get_system_memory();
+                address_space_read(&address_space_memory, s,
+                       MEMTXATTRS_UNSPECIFIED, v, 12);
      //           int *s = (int *)(0x40000000 + (value & 0xfffff));
-     //           printf("outlink=%p %x\n", s, *s);
+                printf("outlink=%x %x %x %x\n", s, v[0],v[1],v[2]);
+//                int size=v[0]&0xfff;
+                int data=v[1];
+//                int next=v[2];
+                int cmd;
+                address_space_read(&address_space_memory, data,
+                       MEMTXATTRS_UNSPECIFIED, &cmd, 1);
+                printf("cmd=%x\n",cmd);
             }
+            break;
+
+        case A_SPI2_DMA_CONF:
+            s->dmaconfig_reg=value;
             break;
     }
     
