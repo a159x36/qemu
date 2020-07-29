@@ -23,21 +23,32 @@
 
 #define IRQ_MAP(cpu, input) s->irq_map[cpu][input]
 
+//static int once=20;
+
+int spi_irq=0;
 static void esp32_intmatrix_irq_handler(void *opaque, int n, int level)
 {
     Esp32IntMatrixState *s = ESP32_INTMATRIX(opaque);
+    if(n==30) {
+      printf("irq %d %d\n",n,level);
+      spi_irq=level;
+    }
     for (int i = 0; i < ESP32_CPU_COUNT; ++i) {
         if (s->outputs[i] == NULL) {
             continue;
         }
         int out_index = IRQ_MAP(i, n);
         for (int int_index = 0; int_index < s->cpu[i]->env.config->nextint; ++int_index) {
+//	if(once)  printf("once %d, %d, %d\n", n,s->cpu[i]->env.config->extint[int_index],out_index);
             if (s->cpu[i]->env.config->extint[int_index] == out_index) {
                 qemu_set_irq(s->outputs[i][int_index], level);
+		if(n==30)
+  		  printf("realirq %d %d\n",out_index,level);
                 break;
             }
         }
     }
+//    once--;
 }
 
 static inline uint8_t* get_map_entry(Esp32IntMatrixState* s, hwaddr addr)
@@ -61,11 +72,14 @@ static uint64_t esp32_intmatrix_read(void* opaque, hwaddr addr, unsigned int siz
 
 static void esp32_intmatrix_write(void* opaque, hwaddr addr, uint64_t value, unsigned int size)
 {
+    printf("esp32_intmatrix_write %lx %lx\n",addr,value);
     Esp32IntMatrixState *s = ESP32_INTMATRIX(opaque);
     uint8_t* map_entry = get_map_entry(s, addr);
     if (map_entry != NULL) {
         *map_entry = value & 0x1f;
     }
+    if(addr==0x78 && value!=6 && spi_irq==1)
+	esp32_intmatrix_irq_handler(s,30,1);
 }
 
 static const MemoryRegionOps esp_intmatrix_ops = {
