@@ -37,6 +37,8 @@ enum {
 static void esp32_spi_do_command(Esp32Spi2State *state, uint32_t cmd_reg);
 void update_irq(Esp32Spi2State *s);
 
+unsigned short frame_buffer[240*135];
+
 void update_irq(Esp32Spi2State *s) {
     if (s->slave_reg & 0x200) {
         if(s->slave_reg & 0x10)
@@ -171,9 +173,10 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                        MEMTXATTRS_UNSPECIFIED, v, 12);
      //           int *s = (int *)(0x40000000 + (value & 0xfffff));
                 printf("outlink=%x %x %x %x\n", addr, v[0],v[1],v[2]);
-//                int size=v[0]&0xfff;
+                int size=v[0]&0xfff;
                 int data=v[1];
 //                int next=v[2];
+/*
                 int cmd=0;
                 address_space_read(&address_space_memory, data,
                        MEMTXATTRS_UNSPECIFIED, &cmd, 1);
@@ -183,6 +186,14 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
               //  qemu_irq irq = qdev_get_gpio_in(DEVICE(s),16);
                 if(gpios & (1<<16))
                     printf("cmd=%x %x\n",cmd, gpios );
+                    */
+                if(size>0xff0) {
+                    address_space_read(&address_space_memory, data,
+                       MEMTXATTRS_UNSPECIFIED, frame_buffer, 240*135*2);
+                    printf("fb copied %x %x %x\n",frame_buffer[0],frame_buffer[1],frame_buffer[1000]);
+                
+
+                }
             }
             break;
 
@@ -358,8 +369,45 @@ static void esp32_spi_reset(DeviceState *dev) {
     s->status_reg = 0;
     qemu_irq_lower(s->irq);
 }
+#define MAGNIFY 4
 
-static void esp32_spi_realize(DeviceState *dev, Error **errp) {}
+int pp=0;
+static void st7789_update_display(void *opaque) {
+    Esp32Spi2State *s = (Esp32Spi2State *)opaque;
+    printf("update disp\n");
+    DisplaySurface *surface = qemu_console_surface(s->con);
+    volatile unsigned *dest = (unsigned *)surface_data(surface);
+    int bpp = surface_bits_per_pixel(surface);
+    printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
+    
+    for(int i=0;i<240;i++)
+        for(int j=0;j<135;j++)
+          for(int ii=0;ii<MAGNIFY;ii++) 
+            for(int jj=0;jj<MAGNIFY; jj++) {
+                *(dest+j*240*MAGNIFY*MAGNIFY+jj*240*MAGNIFY+i*MAGNIFY+ii)=pp;// | 0xff000000;//(unsigned)frame_buffer[0] + 0xff0000ff;//((unsigned)frame_buffer[j*240+i]<<16);
+            }
+
+    dpy_gfx_update(s->con, 0, 0, 240 * MAGNIFY, 135 * MAGNIFY);
+    pp+=10;
+}
+static void st7789_invalidate_display(void * opaque)
+{
+ //   Esp32Spi2State *s = (Esp32Spi2State *)opaque;
+ //   s->redraw = 1;
+}
+
+static const GraphicHwOps st7789_ops = {
+    .invalidate  = st7789_invalidate_display,
+    .gfx_update  = st7789_update_display,
+};
+
+
+static void esp32_spi_realize(DeviceState *dev, Error **errp) {
+    Esp32Spi2State *s = ESP32_SPI_ST7789V(dev);
+    printf("realise\n");
+    s->con = graphic_console_init(dev, 0, &st7789_ops, s);
+    qemu_console_resize(s->con, 240 * MAGNIFY, 135 * MAGNIFY);
+}
 
 static void esp32_spi_init(Object *obj) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(obj);

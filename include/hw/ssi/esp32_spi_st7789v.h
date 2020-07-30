@@ -20,7 +20,7 @@ typedef struct Esp32Spi2State {
     int num_cs;
     SSIBus *spi;
     qemu_irq dma_irq;
-
+    QemuConsole *con;
     uint32_t addr_reg;
     uint32_t ctrl_reg;
     uint32_t status_reg;
