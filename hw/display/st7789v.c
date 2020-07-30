@@ -164,20 +164,25 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
         case A_SPI2_DMA_OUT_LINK:
             s->outlink_reg = value;
             if ((value & 0x20000000)) {
-                unsigned s = (0x3ff00000 + (value & 0xfffff));
+                unsigned addr = (0x3ff00000 + (value & 0xfffff));
                 int v[3];
               //  MemoryRegion* sys_mem = get_system_memory();
-                address_space_read(&address_space_memory, s,
+                address_space_read(&address_space_memory, addr,
                        MEMTXATTRS_UNSPECIFIED, v, 12);
      //           int *s = (int *)(0x40000000 + (value & 0xfffff));
-                printf("outlink=%x %x %x %x\n", s, v[0],v[1],v[2]);
+                printf("outlink=%x %x %x %x\n", addr, v[0],v[1],v[2]);
 //                int size=v[0]&0xfff;
                 int data=v[1];
 //                int next=v[2];
-                int cmd;
+                int cmd=0;
                 address_space_read(&address_space_memory, data,
                        MEMTXATTRS_UNSPECIFIED, &cmd, 1);
-                printf("cmd=%x\n",cmd);
+                int gpios;
+                address_space_read(&address_space_memory, 0x3FF44004,
+                MEMTXATTRS_UNSPECIFIED, &gpios, 4);
+              //  qemu_irq irq = qdev_get_gpio_in(DEVICE(s),16);
+                if(gpios & (1<<16))
+                    printf("cmd=%x %x\n",cmd, gpios );
             }
             break;
 

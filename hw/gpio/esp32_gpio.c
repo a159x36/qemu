@@ -26,6 +26,9 @@ static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
     Esp32GpioState *s = ESP32_GPIO(opaque);
     uint64_t r = 0;
     switch (addr) {
+    case 4:
+       r= s->gpio_out;
+       break;
     case A_GPIO_STRAP:
         r = s->strap_mode;
         break;
@@ -39,6 +42,18 @@ static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
 static void esp32_gpio_write(void *opaque, hwaddr addr,
                        uint64_t value, unsigned int size)
 {
+  Esp32GpioState *s = ESP32_GPIO(opaque);
+  switch (addr) {
+     case 4:
+     s->gpio_out = value;
+     break;
+     case 8:
+     s->gpio_out |= value;
+     break;
+     case 12:
+     s->gpio_out &= ~value;
+     break;
+  }
 }
 
 static const MemoryRegionOps uart_ops = {

@@ -17,6 +17,7 @@ typedef struct Esp32GpioState {
 
     MemoryRegion iomem;
     qemu_irq irq;
+    int gpio_out;
     uint32_t strap_mode;
 } Esp32GpioState;
 
