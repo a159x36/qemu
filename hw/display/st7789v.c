@@ -172,7 +172,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                 address_space_read(&address_space_memory, addr,
                        MEMTXATTRS_UNSPECIFIED, v, 12);
      //           int *s = (int *)(0x40000000 + (value & 0xfffff));
-                printf("outlink=%x %x %x %x\n", addr, v[0],v[1],v[2]);
+  //              printf("outlink=%x %x %x %x\n", addr, v[0],v[1],v[2]);
                 int size=v[0]&0xfff;
                 int data=v[1];
 //                int next=v[2];
@@ -190,9 +190,8 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                 if(size>0xff0) {
                     address_space_read(&address_space_memory, data,
                        MEMTXATTRS_UNSPECIFIED, frame_buffer, 240*135*2);
-                    printf("fb copied %x %x %x\n",frame_buffer[0],frame_buffer[1],frame_buffer[1000]);
-                
-
+//                    printf("fb copied %x %x %x\n",frame_buffer[0],frame_buffer[1],frame_buffer[1000]);
+                    s->redraw=1;
                 }
             }
             break;
@@ -369,31 +368,37 @@ static void esp32_spi_reset(DeviceState *dev) {
     s->status_reg = 0;
     qemu_irq_lower(s->irq);
 }
-#define MAGNIFY 4
+#define MAGNIFY 2
 
 int pp=0;
 static void st7789_update_display(void *opaque) {
     Esp32Spi2State *s = (Esp32Spi2State *)opaque;
-    printf("update disp\n");
+    if (!s->redraw)
+        return;
+  //  printf("update disp\n");
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
-    int bpp = surface_bits_per_pixel(surface);
-    printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
+   // int bpp = surface_bits_per_pixel(surface);
+  //  printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
     
     for(int i=0;i<240;i++)
         for(int j=0;j<135;j++)
           for(int ii=0;ii<MAGNIFY;ii++) 
             for(int jj=0;jj<MAGNIFY; jj++) {
-                *(dest+j*240*MAGNIFY*MAGNIFY+jj*240*MAGNIFY+i*MAGNIFY+ii)=pp;// | 0xff000000;//(unsigned)frame_buffer[0] + 0xff0000ff;//((unsigned)frame_buffer[j*240+i]<<16);
+                unsigned fbv=frame_buffer[j*240+i];
+                int red=(fbv&0xf800)>>8;
+                int green=(fbv&0x7e0)>>3;
+                int blue=(fbv&0x1f)<<3;
+                *(dest+j*240*MAGNIFY*MAGNIFY+jj*240*MAGNIFY+i*MAGNIFY+ii)=(red<<16) | (green<<8) | blue;
             }
-
+    s->redraw = 0;
     dpy_gfx_update(s->con, 0, 0, 240 * MAGNIFY, 135 * MAGNIFY);
     pp+=10;
 }
 static void st7789_invalidate_display(void * opaque)
 {
- //   Esp32Spi2State *s = (Esp32Spi2State *)opaque;
- //   s->redraw = 1;
+    Esp32Spi2State *s = (Esp32Spi2State *)opaque;
+    s->redraw = 1;
 }
 
 static const GraphicHwOps st7789_ops = {
