@@ -14,12 +14,10 @@
 #include "hw/hw.h"
 #include "hw/sysbus.h"
 #include "hw/registerfields.h"
-
 #include "hw/irq.h"
 #include "hw/qdev-properties.h"
 #include "hw/ssi/esp32_spi_st7789v.h"
 #include "hw/ssi/ssi.h"
-#include "hw/sysbus.h"
 #include "exec/address-spaces.h"
 
 #include "ui/console.h"
@@ -37,16 +35,16 @@ enum {
 static void esp32_spi_do_command(Esp32Spi2State *state, uint32_t cmd_reg);
 void update_irq(Esp32Spi2State *s);
 
-unsigned short frame_buffer[240*135];
+unsigned short frame_buffer[240 * 135];
 
 void update_irq(Esp32Spi2State *s) {
     if (s->slave_reg & 0x200) {
-        if(s->slave_reg & 0x10)
-        qemu_irq_raise(s->irq);
+        if (s->slave_reg & 0x10)
+            qemu_irq_raise(s->irq);
         else
-        qemu_irq_lower(s->irq);
-        
-        //s->slave_reg &= ~0x10;
+            qemu_irq_lower(s->irq);
+
+        // s->slave_reg &= ~0x10;
     }
 }
 static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size) {
@@ -104,8 +102,14 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size) {
             break;
     }
     if (DEBUG) qemu_log("spi_read %lx, %lx\n", addr, r);
-    //update_irq(s);
+    // update_irq(s);
     return r;
+}
+static void esp32_spi_timer_cb(void *opaque) {
+    Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
+    // timer_del(&ts->alarm_timer);
+    s->slave_reg |= 0x10;
+    update_irq(s);
 }
 
 static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
@@ -152,10 +156,15 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             break;
         case A_SPI2_CMD:
             esp32_spi_do_command(s, value);
+
             if (value & 0x40000) {
-                s->slave_reg |= 0x10;
+                uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+                uint64_t ns_to_timeout = s->mosi_dlen_reg * 50;//25;
+                //printf("timeout=%ld\n",ns_to_timeout);
+                timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
+                // s->slave_reg |= 0x10;
             }
-            update_irq(s);
+            //            update_irq(s);
             break;
         case A_SPI2_SLAVE:
             s->slave_reg = value;  // transaction done
@@ -168,39 +177,41 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             if ((value & 0x20000000)) {
                 unsigned addr = (0x3ff00000 + (value & 0xfffff));
                 int v[3];
-              //  MemoryRegion* sys_mem = get_system_memory();
+                //  MemoryRegion* sys_mem = get_system_memory();
                 address_space_read(&address_space_memory, addr,
-                       MEMTXATTRS_UNSPECIFIED, v, 12);
-     //           int *s = (int *)(0x40000000 + (value & 0xfffff));
-  //              printf("outlink=%x %x %x %x\n", addr, v[0],v[1],v[2]);
-                int size=v[0]&0xfff;
-                int data=v[1];
-//                int next=v[2];
-/*
-                int cmd=0;
-                address_space_read(&address_space_memory, data,
-                       MEMTXATTRS_UNSPECIFIED, &cmd, 1);
-                int gpios;
-                address_space_read(&address_space_memory, 0x3FF44004,
-                MEMTXATTRS_UNSPECIFIED, &gpios, 4);
-              //  qemu_irq irq = qdev_get_gpio_in(DEVICE(s),16);
-                if(gpios & (1<<16))
-                    printf("cmd=%x %x\n",cmd, gpios );
-                    */
-                if(size>0xff0) {
+                                   MEMTXATTRS_UNSPECIFIED, v, 12);
+                //           int *s = (int *)(0x40000000 + (value & 0xfffff));
+                //              printf("outlink=%x %x %x %x\n", addr,
+                //              v[0],v[1],v[2]);
+                int size = v[0] & 0xfff;
+                int data = v[1];
+                //                int next=v[2];
+                /*
+                                int cmd=0;
+                                address_space_read(&address_space_memory, data,
+                                       MEMTXATTRS_UNSPECIFIED, &cmd, 1);
+                                int gpios;
+                                address_space_read(&address_space_memory,
+                   0x3FF44004, MEMTXATTRS_UNSPECIFIED, &gpios, 4);
+                              //  qemu_irq irq = qdev_get_gpio_in(DEVICE(s),16);
+                                if(gpios & (1<<16))
+                                    printf("cmd=%x %x\n",cmd, gpios );
+                                    */
+                if (size > 0xff0) {
                     address_space_read(&address_space_memory, data,
-                       MEMTXATTRS_UNSPECIFIED, frame_buffer, 240*135*2);
-//                    printf("fb copied %x %x %x\n",frame_buffer[0],frame_buffer[1],frame_buffer[1000]);
-                    s->redraw=1;
+                                       MEMTXATTRS_UNSPECIFIED, frame_buffer,
+                                       240 * 135 * 2);
+                    //                    printf("fb copied %x %x
+                    //                    %x\n",frame_buffer[0],frame_buffer[1],frame_buffer[1000]);
+                    s->redraw = 1;
                 }
             }
             break;
 
         case A_SPI2_DMA_CONF:
-            s->dmaconfig_reg=value;
+            s->dmaconfig_reg = value;
             break;
     }
-    
 }
 
 typedef struct Esp32Spi2Transaction {
@@ -370,42 +381,40 @@ static void esp32_spi_reset(DeviceState *dev) {
 }
 #define MAGNIFY 2
 
-int pp=0;
+int pp = 0;
 static void st7789_update_display(void *opaque) {
     Esp32Spi2State *s = (Esp32Spi2State *)opaque;
-    if (!s->redraw)
-        return;
-  //  printf("update disp\n");
+    if (!s->redraw) return;
+    //  printf("update disp\n");
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
-   // int bpp = surface_bits_per_pixel(surface);
-  //  printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
-    
-    for(int i=0;i<240;i++)
-        for(int j=0;j<135;j++)
-          for(int ii=0;ii<MAGNIFY;ii++) 
-            for(int jj=0;jj<MAGNIFY; jj++) {
-                unsigned fbv=frame_buffer[j*240+i];
-                int red=(fbv&0xf800)>>8;
-                int green=(fbv&0x7e0)>>3;
-                int blue=(fbv&0x1f)<<3;
-                *(dest+j*240*MAGNIFY*MAGNIFY+jj*240*MAGNIFY+i*MAGNIFY+ii)=(red<<16) | (green<<8) | blue;
-            }
+    // int bpp = surface_bits_per_pixel(surface);
+    //  printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
+
+    for (int i = 0; i < 240; i++)
+        for (int j = 0; j < 135; j++)
+            for (int ii = 0; ii < MAGNIFY; ii++)
+                for (int jj = 0; jj < MAGNIFY; jj++) {
+                    unsigned fbv = frame_buffer[j * 240 + i];
+                    int red = (fbv & 0xf800) >> 8;
+                    int green = (fbv & 0x7e0) >> 3;
+                    int blue = (fbv & 0x1f) << 3;
+                    *(dest + j * 240 * MAGNIFY * MAGNIFY + jj * 240 * MAGNIFY +
+                      i * MAGNIFY + ii) = (red << 16) | (green << 8) | blue;
+                }
     s->redraw = 0;
     dpy_gfx_update(s->con, 0, 0, 240 * MAGNIFY, 135 * MAGNIFY);
-    pp+=10;
+    pp += 10;
 }
-static void st7789_invalidate_display(void * opaque)
-{
+static void st7789_invalidate_display(void *opaque) {
     Esp32Spi2State *s = (Esp32Spi2State *)opaque;
     s->redraw = 1;
 }
 
 static const GraphicHwOps st7789_ops = {
-    .invalidate  = st7789_invalidate_display,
-    .gfx_update  = st7789_update_display,
+    .invalidate = st7789_invalidate_display,
+    .gfx_update = st7789_update_display,
 };
-
 
 static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(dev);
@@ -422,12 +431,14 @@ static void esp32_spi_init(Object *obj) {
                           ESP32_SPI_REG_SIZE);
     sysbus_init_mmio(sbd, &s->iomem);
     sysbus_init_irq(sbd, &s->irq);
+    timer_init_ns(&s->spi_timer, QEMU_CLOCK_VIRTUAL, esp32_spi_timer_cb, s);
+
     //    sysbus_init_irq(sbd, &s->irq_dma);
 
     //    qemu_irq dma_irq=qdev_get_gpio_in(DEVICE(&s->dport.intmatrix),
     //    ETS_SPI2_DMA_INTR_SOURCE); sysbus_init_irq(sbd, &s->dma_irq);
 
-    //s->spi = ssi_create_bus(DEVICE(s), "spi");
+    // s->spi = ssi_create_bus(DEVICE(s), "spi");
     //    qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS,
     //    ESP32_SPI2_CS_COUNT);
     qdev_init_gpio_out_named(DEVICE(s), &s->irq, SYSBUS_DEVICE_GPIO_IRQ, 1);
@@ -451,8 +462,7 @@ static const TypeInfo esp32_spi2_info = {
     .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(Esp32Spi2State),
     .instance_init = esp32_spi_init,
-    .class_init = esp32_spi_class_init
-};
+    .class_init = esp32_spi_class_init};
 
 static void esp32_spi2_register_types(void) {
     type_register_static(&esp32_spi2_info);

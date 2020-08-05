@@ -25,12 +25,12 @@
 
 //static int once=20;
 
-int spi_irq=0;
+int spi_irq=-1;
 static void esp32_intmatrix_irq_handler(void *opaque, int n, int level)
 {
     Esp32IntMatrixState *s = ESP32_INTMATRIX(opaque);
     if(n==30) {
-//      printf("irq %d %d\n",n,level);
+//      printf("irq %d %d %d %d\n",n,IRQ_MAP(0, n),IRQ_MAP(1, n),level);
       spi_irq=level;
     }
     for (int i = 0; i < ESP32_CPU_COUNT; ++i) {
@@ -78,8 +78,13 @@ static void esp32_intmatrix_write(void* opaque, hwaddr addr, uint64_t value, uns
     if (map_entry != NULL) {
         *map_entry = value & 0x1f;
     }
-    if(addr==0x78 && value!=6 && spi_irq==1)
+    if(addr==0x78 && value!=6 && spi_irq==1) {
 	esp32_intmatrix_irq_handler(s,30,1);
+//	spi_irq=0;
+    }
+//    if(addr==0x78 && value==6) {
+//        esp32_intmatrix_irq_handler(s,30,0);
+//    }
 }
 
 static const MemoryRegionOps esp_intmatrix_ops = {
@@ -91,6 +96,7 @@ static const MemoryRegionOps esp_intmatrix_ops = {
 static void esp32_intmatrix_reset(DeviceState *dev)
 {
     Esp32IntMatrixState *s = ESP32_INTMATRIX(dev);
+    spi_irq=0;
     memset(s->irq_map, INTMATRIX_UNINT_VALUE, sizeof(s->irq_map));
     for (int i = 0; i < ESP32_CPU_COUNT; ++i) {
         if (s->outputs[i] == NULL) {
@@ -123,7 +129,7 @@ static void esp32_intmatrix_init(Object *obj)
     memory_region_init_io(&s->iomem, obj, &esp_intmatrix_ops, s,
                           TYPE_ESP32_INTMATRIX, ESP32_INT_MATRIX_INPUTS * ESP32_CPU_COUNT * sizeof(uint32_t));
     sysbus_init_mmio(sbd, &s->iomem);
-
+    spi_irq=0;
     qdev_init_gpio_in(DEVICE(s), esp32_intmatrix_irq_handler, ESP32_INT_MATRIX_INPUTS);
 }
 
