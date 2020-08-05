@@ -13,13 +13,15 @@
 #include "qemu/error-report.h"
 #include "qapi/error.h"
 #include "hw/hw.h"
+#include "ui/input.h"
 #include "hw/sysbus.h"
 #include "hw/registerfields.h"
 #include "hw/irq.h"
 #include "hw/qdev-properties.h"
 #include "hw/gpio/esp32_gpio.h"
 
-
+static unsigned gpio_in_low=1;
+static unsigned gpio_in_high=8;
 
 static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
 {
@@ -32,7 +34,12 @@ static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
     case A_GPIO_STRAP:
         r = s->strap_mode;
         break;
-
+    case 0x3C: // in_low
+        r = gpio_in_low;
+        break;
+    case 0x40: // in_high
+        r = gpio_in_high;
+        break;
     default:
         break;
     }
@@ -66,8 +73,32 @@ static void esp32_gpio_reset(DeviceState *dev)
 {
 }
 
+static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
+                               InputEvent *evt)
+{
+
+    int qcode=qemu_input_key_value_to_qcode(evt->u.key.data->key);
+    int down=1-evt->u.key.data->down;
+
+   // printf("keyboard_event:%d %d\n",qcode, evt->u.key.data->down);
+    if(qcode==Q_KEY_CODE_1) {
+        gpio_in_low=down;
+    }
+    if(qcode==Q_KEY_CODE_2) {
+        gpio_in_high=down<<3;
+    }
+
+}
+
+static QemuInputHandler gpio_keyboard_handler = {
+    .name  = "GPIO Keys",
+    .mask  = INPUT_EVENT_MASK_KEY,
+    .event = gpio_keyboard_event,
+};
+
 static void esp32_gpio_realize(DeviceState *dev, Error **errp)
 {
+    qemu_input_handler_register(dev, &gpio_keyboard_handler);
 }
 
 static void esp32_gpio_init(Object *obj)
