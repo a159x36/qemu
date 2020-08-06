@@ -25,6 +25,7 @@
 #include "hw/misc/esp32_rtc_cntl.h"
 #include "hw/misc/esp32_rng.h"
 #include "hw/misc/esp32_sha.h"
+#include "hw/misc/esp32_sens.h"
 #include "hw/timer/esp32_frc_timer.h"
 #include "hw/timer/esp32_timg.h"
 #include "hw/ssi/esp32_spi.h"
@@ -105,6 +106,7 @@ typedef struct Esp32SocState {
     Esp32SpiState spi3;
     Esp32ShaState sha;
     Esp32EfuseState efuse;
+    Esp32SensState sens;
     DeviceState *eth;
 
     MemoryRegion cpu_specific_mem[ESP32_CPU_COUNT];
@@ -453,10 +455,13 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->efuse), 0,
                        qdev_get_gpio_in(intmatrix_dev, ETS_EFUSE_INTR_SOURCE));
 
+    object_property_set_bool(OBJECT(&s->sens), true, "realized", &error_abort);
+    esp32_soc_add_periph_device(sys_mem, &s->sens, DR_REG_SENS_BASE);
+
 
     esp32_soc_add_unimp_device(sys_mem, "esp32.analog", DR_REG_ANA_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_RTCIO_BASE, 0x400);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_SENS_BASE, 0x400);
+//    esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_SENS_BASE, 0x400);
     esp32_soc_add_unimp_device(sys_mem, "esp32.iomux", DR_REG_IO_MUX_BASE, 0x2000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.hinf", DR_REG_HINF_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.slc", DR_REG_SLC_BASE, 0x1000);
@@ -547,6 +552,10 @@ static void esp32_soc_init(Object *obj)
 
     object_initialize_child(obj, "efuse", &s->efuse, sizeof(s->efuse),
                                     TYPE_ESP32_EFUSE, &error_abort, NULL);
+
+   object_initialize_child(obj, "sens", &s->sens, sizeof(s->sens),
+                            TYPE_ESP32_SENS, &error_abort, NULL);
+
 
 
     qdev_init_gpio_in_named(DEVICE(s), esp32_dig_reset, ESP32_RTC_DIG_RESET_GPIO, 1);
