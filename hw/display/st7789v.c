@@ -29,6 +29,7 @@ enum {
     CMD_RASET = 0x2b,
     CMD_RAMWR = 0x2c,
 };
+#define MAGNIFY 2
 
 #define ESP32_SPI_REG_SIZE 0x1000
 
@@ -200,17 +201,28 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                 int size = v[0] & 0xfff;
                 int data = v[1];
                 //                int next=v[2];
-                /*
-                                int cmd=0;
-                                address_space_read(&address_space_memory, data,
+
+                int cmd=0;
+                address_space_read(&address_space_memory, data,
                                        MEMTXATTRS_UNSPECIFIED, &cmd, 1);
                                 int gpios;
                                 address_space_read(&address_space_memory,
                    0x3FF44004, MEMTXATTRS_UNSPECIFIED, &gpios, 4);
                               //  qemu_irq irq = qdev_get_gpio_in(DEVICE(s),16);
-                                if(gpios & (1<<16))
-                                    printf("cmd=%x %x\n",cmd, gpios );
-                                    */
+                if(gpios & (1<<16)) {
+                        printf("cmd=%x %x\n",cmd, gpios );
+                        s->current_command=cmd;
+                }
+                printf("data=%x %x\n",cmd, gpios );
+
+                if(s->current_command==0x36 && !(gpios & (1<<16))) {
+                   printf("madctrl=%d\n",cmd);
+                   if(cmd==0) {
+                     qemu_console_resize(s->con, 135 * MAGNIFY, 240 * MAGNIFY);
+                     s->width=135;
+                     s->height=240;
+                   }
+                }
                 if (size > 0xff0) {
                     address_space_read(&address_space_memory, data,
                                        MEMTXATTRS_UNSPECIFIED, frame_buffer,
@@ -393,7 +405,6 @@ static void esp32_spi_reset(DeviceState *dev) {
     s->status_reg = 0;
     qemu_irq_lower(s->irq);
 }
-#define MAGNIFY 2
 
 int pp = 0;
 static void st7789_update_display(void *opaque) {
@@ -405,19 +416,19 @@ static void st7789_update_display(void *opaque) {
     // int bpp = surface_bits_per_pixel(surface);
     //  printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
 
-    for (int i = 0; i < 240; i++)
-        for (int j = 0; j < 135; j++)
+    for (int i = 0; i < s->width; i++)
+        for (int j = 0; j < s->height; j++)
             for (int ii = 0; ii < MAGNIFY; ii++)
                 for (int jj = 0; jj < MAGNIFY; jj++) {
-                    unsigned fbv = frame_buffer[j * 240 + i];
+                    unsigned fbv = frame_buffer[j * s->width + i];
                     int red = (fbv & 0xf800) >> 8;
                     int green = (fbv & 0x7e0) >> 3;
                     int blue = (fbv & 0x1f) << 3;
-                    *(dest + j * 240 * MAGNIFY * MAGNIFY + jj * 240 * MAGNIFY +
+                    *(dest + j * s->width * MAGNIFY * MAGNIFY + jj * s->width * MAGNIFY +
                       i * MAGNIFY + ii) = (red << 16) | (green << 8) | blue;
                 }
     s->redraw = 0;
-    dpy_gfx_update(s->con, 0, 0, 240 * MAGNIFY, 135 * MAGNIFY);
+    dpy_gfx_update(s->con, 0, 0, s->width * MAGNIFY, s->height * MAGNIFY);
     pp += 10;
 }
 static void st7789_invalidate_display(void *opaque) {
@@ -434,7 +445,9 @@ static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(dev);
     printf("realise\n");
     s->con = graphic_console_init(dev, 0, &st7789_ops, s);
-    qemu_console_resize(s->con, 240 * MAGNIFY, 135 * MAGNIFY);
+    s->width=240;
+    s->height=135;
+    qemu_console_resize(s->con, s->width * MAGNIFY, s->height * MAGNIFY);
 }
 
 static void esp32_spi_init(Object *obj) {

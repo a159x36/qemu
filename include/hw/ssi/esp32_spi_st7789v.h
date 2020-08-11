@@ -35,7 +35,10 @@ typedef struct Esp32Spi2State {
     uint32_t slave_reg;
     uint32_t outlink_reg;
     uint32_t dmaconfig_reg;
+    uint32_t current_command;
     uint32_t redraw;
+    uint32_t width;
+    uint32_t height;
     QEMUTimer spi_timer;
     uint32_t data_reg[ESP32_SPI2_BUF_WORDS];
 } Esp32Spi2State;

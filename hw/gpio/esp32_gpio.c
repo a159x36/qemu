@@ -20,8 +20,8 @@
 #include "hw/qdev-properties.h"
 #include "hw/gpio/esp32_gpio.h"
 
-static unsigned gpio_in_low=1;
-static unsigned gpio_in_high=8;
+static unsigned gpio_in_low=0x1;
+static unsigned gpio_in_high=0x8;
 
 static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
 {
