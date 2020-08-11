@@ -16,7 +16,7 @@ typedef struct Esp32Spi2State {
     MemoryRegion iomem;
     qemu_irq irq;
 //    qemu_irq irq_dma;
-//    qemu_irq cs_gpio[ESP32_SPI2_CS_COUNT];
+    qemu_irq cs_gpio[ESP32_SPI2_CS_COUNT];
     int num_cs;
     SSIBus *spi;
     qemu_irq dma_irq;

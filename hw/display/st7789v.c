@@ -47,6 +47,13 @@ void update_irq(Esp32Spi2State *s) {
         // s->slave_reg &= ~0x10;
     }
 }
+
+static void esp32_spi_cs_set(Esp32Spi2State *s, int value)
+{
+    for (int i = 0; i < ESP32_SPI2_CS_COUNT; ++i) {
+        qemu_set_irq(s->cs_gpio[i], ((s->pin_reg & (1 << i)) == 0) ? value : 1);
+    }
+}
 static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
     uint64_t r = 0;
@@ -109,6 +116,7 @@ static void esp32_spi_timer_cb(void *opaque) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
     // timer_del(&ts->alarm_timer);
     s->slave_reg |= 0x10;
+    esp32_spi_cs_set(s,1);
     update_irq(s);
 }
 
@@ -116,6 +124,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             unsigned int size) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
     if (DEBUG) qemu_log("spi_write %lx, %lx\n", addr, value);
+    int doirq;
     switch (addr) {
         case A_SPI2_W0 ... A_SPI2_W0 +
             (ESP32_SPI2_BUF_WORDS - 1) * sizeof(uint32_t):
@@ -163,13 +172,18 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                 //printf("timeout=%ld\n",ns_to_timeout);
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
                 // s->slave_reg |= 0x10;
+                esp32_spi_cs_set(s,0);
             }
             //            update_irq(s);
             break;
         case A_SPI2_SLAVE:
+            doirq=0;
+            if((s->slave_reg & 0x10) && !(value & 0x10))
+                doirq=1;
             s->slave_reg = value;  // transaction done
             // s->slave_reg &= ~0x10;
-            update_irq(s);
+            if(doirq)
+                update_irq(s);
             break;
 
         case A_SPI2_DMA_OUT_LINK:
@@ -438,9 +452,9 @@ static void esp32_spi_init(Object *obj) {
     //    qemu_irq dma_irq=qdev_get_gpio_in(DEVICE(&s->dport.intmatrix),
     //    ETS_SPI2_DMA_INTR_SOURCE); sysbus_init_irq(sbd, &s->dma_irq);
 
-    // s->spi = ssi_create_bus(DEVICE(s), "spi");
-    //    qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS,
-    //    ESP32_SPI2_CS_COUNT);
+    s->spi = ssi_create_bus(DEVICE(s), "spi");
+        qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS,
+        ESP32_SPI2_CS_COUNT);
     qdev_init_gpio_out_named(DEVICE(s), &s->irq, SYSBUS_DEVICE_GPIO_IRQ, 1);
     // printf("spi irq=%x\n",(s->irq).n);
 }
