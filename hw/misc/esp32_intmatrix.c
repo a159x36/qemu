@@ -69,7 +69,7 @@ static void esp32_intmatrix_write(void* opaque, hwaddr addr, uint64_t value, uns
 //    printf("esp32_intmatrix_write %lx %lx\n",addr,value);
     Esp32IntMatrixState *s = ESP32_INTMATRIX(opaque);
     uint8_t* map_entry = get_map_entry(s, addr);
-    if(addr==0x78 && value==6) {
+    if((addr==0x78 || addr==0x18c) && value==6) {
 	int si=spi_irq;
 	esp32_intmatrix_irq_handler(s,30,0);
         spi_irq=si;
@@ -77,7 +77,7 @@ static void esp32_intmatrix_write(void* opaque, hwaddr addr, uint64_t value, uns
     if (map_entry != NULL) {
         *map_entry = value & 0x1f;
     }
-    if(addr==0x78 && value!=6 && spi_irq==1) {
+    if((addr==0x78 || addr==0x18c) && value!=6 && spi_irq==1) {
 	esp32_intmatrix_irq_handler(s,30,1);
     }
 }
