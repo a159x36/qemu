@@ -166,16 +166,73 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             break;
         case A_SPI2_CMD:
             esp32_spi_do_command(s, value);
-
             if (value & 0x40000) {
+                value=s->outlink_reg;
+                if ((value & 0x20000000)) {
+                    unsigned addr = (0x3ff00000 + (value & 0xfffff));
+                    int v[3];
+                    address_space_read(&address_space_memory, addr,
+                            MEMTXATTRS_UNSPECIFIED, v, 12);
+                   // int size = v[0] & 0xfff;
+                    int data = v[1];
+                    int cmd=0;
+                    address_space_read(&address_space_memory, data,
+                            MEMTXATTRS_UNSPECIFIED, &cmd, 1);
+                    int gpios;
+                    address_space_read(&address_space_memory, 0x3FF44004,
+                            MEMTXATTRS_UNSPECIFIED, &gpios, 4);
+                    if(!(gpios & (1<<16))) {
+                            s->current_command=cmd;
+                    }
+                    if(s->current_command==0x36 && (gpios & (1<<16))) {
+                        if(cmd==0) {
+                            qemu_console_resize(s->con, 135 * MAGNIFY, 240 * MAGNIFY);
+                            s->width=135;
+                            s->height=240;
+                            s->x_offset=52;
+                            s->y_offset=40;
+                        } else {
+                            qemu_console_resize(s->con, 240 * MAGNIFY, 135 * MAGNIFY);
+                            s->width=240;
+                            s->height=135;
+                            s->x_offset=40;
+                            s->y_offset=53;
+                        }
+                    }
+                    if(s->current_command==0x2a && (gpios & (1<<16))) { //CAS_SET
+                        unsigned char xx[4];
+                        address_space_read(&address_space_memory, data,
+                            MEMTXATTRS_UNSPECIFIED, xx, 4);
+                        s->x_start=xx[1]+xx[0]*256;
+                   //     if(s->x_start-s->x_offset <0)
+                            
+                        s->x_end=xx[3]+xx[2]*256;
+                    }
+                    if(s->current_command==0x2b && (gpios & (1<<16))) { //RAS_SET
+                        unsigned char xx[4];
+                        address_space_read(&address_space_memory, data,
+                            MEMTXATTRS_UNSPECIFIED, xx, 4);
+                        s->y_start=xx[1]+xx[0]*256;
+                        s->y_end=xx[3]+xx[2]*256;
+                    }
+                
+                    if (s->current_command==0x2c && (gpios & (1<<16))) {
+                        for(int y=s->y_start-s->y_offset;y<=s->y_end-s->y_offset;y++) {
+                            if(y>=0 && y<s->height) {
+                                address_space_read(&address_space_memory, data,
+                                        MEMTXATTRS_UNSPECIFIED, frame_buffer+y*s->width+s->x_start-s->x_offset,
+                                        (s->x_end-s->x_start+1)*2);
+                            }
+                            data+=(s->x_end-s->x_start+1)*2;
+                        }
+                        s->redraw = 1;
+                    }
+                }
+
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                uint64_t ns_to_timeout = s->mosi_dlen_reg * 50;//25;
-                //printf("timeout=%ld\n",ns_to_timeout);
+                uint64_t ns_to_timeout = s->mosi_dlen_reg * 50+50;//25;
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
-                // s->slave_reg |= 0x10;
-                esp32_spi_cs_set(s,0);
             }
-            //            update_irq(s);
             break;
         case A_SPI2_SLAVE:
             doirq=0;
@@ -189,49 +246,6 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
 
         case A_SPI2_DMA_OUT_LINK:
             s->outlink_reg = value;
-            if ((value & 0x20000000)) {
-                unsigned addr = (0x3ff00000 + (value & 0xfffff));
-                int v[3];
-                //  MemoryRegion* sys_mem = get_system_memory();
-                address_space_read(&address_space_memory, addr,
-                                   MEMTXATTRS_UNSPECIFIED, v, 12);
-                //           int *s = (int *)(0x40000000 + (value & 0xfffff));
-                //              printf("outlink=%x %x %x %x\n", addr,
-                //              v[0],v[1],v[2]);
-                int size = v[0] & 0xfff;
-                int data = v[1];
-                //                int next=v[2];
-
-                int cmd=0;
-                address_space_read(&address_space_memory, data,
-                                       MEMTXATTRS_UNSPECIFIED, &cmd, 1);
-                                int gpios;
-                                address_space_read(&address_space_memory,
-                   0x3FF44004, MEMTXATTRS_UNSPECIFIED, &gpios, 4);
-                              //  qemu_irq irq = qdev_get_gpio_in(DEVICE(s),16);
-                if(gpios & (1<<16)) {
-                        printf("cmd=%x %x\n",cmd, gpios );
-                        s->current_command=cmd;
-                }
-                printf("data=%x %x\n",cmd, gpios );
-
-                if(s->current_command==0x36 && !(gpios & (1<<16))) {
-                   printf("madctrl=%d\n",cmd);
-                   if(cmd==0) {
-                     qemu_console_resize(s->con, 135 * MAGNIFY, 240 * MAGNIFY);
-                     s->width=135;
-                     s->height=240;
-                   }
-                }
-                if (size > 0xff0) {
-                    address_space_read(&address_space_memory, data,
-                                       MEMTXATTRS_UNSPECIFIED, frame_buffer,
-                                       240 * 135 * 2);
-                    //                    printf("fb copied %x %x
-                    //                    %x\n",frame_buffer[0],frame_buffer[1],frame_buffer[1000]);
-                    s->redraw = 1;
-                }
-            }
             break;
 
         case A_SPI2_DMA_CONF:

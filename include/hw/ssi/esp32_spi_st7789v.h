@@ -39,6 +39,14 @@ typedef struct Esp32Spi2State {
     uint32_t redraw;
     uint32_t width;
     uint32_t height;
+    uint32_t x_start;
+    uint32_t x_end;
+    uint32_t x_offset;
+    uint32_t y_start;
+    uint32_t y_end;
+    uint32_t y_offset;
+
+
     QEMUTimer spi_timer;
     uint32_t data_reg[ESP32_SPI2_BUF_WORDS];
 } Esp32Spi2State;

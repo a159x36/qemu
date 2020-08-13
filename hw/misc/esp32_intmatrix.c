@@ -42,7 +42,7 @@ static void esp32_intmatrix_irq_handler(void *opaque, int n, int level)
 //	if(once)  printf("once %d, %d, %d\n", n,s->cpu[i]->env.config->extint[int_index],out_index);
             if (s->cpu[i]->env.config->extint[int_index] == out_index) {
                 qemu_set_irq(s->outputs[i][int_index], level);
-		if(n==30)
+//		if(n==30)
   //		  printf("realirq %d %d\n",out_index,level);
                 break;
             }
