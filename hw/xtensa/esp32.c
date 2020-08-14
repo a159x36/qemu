@@ -471,6 +471,11 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s1", DR_REG_I2S1_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2c0", DR_REG_I2C_EXT_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2c1", DR_REG_I2C1_EXT_BASE, 0x1000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x4000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
+//    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF45000, 0x1000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF5c000 , 0x2000);
+//    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF5C000 , 0x1000);
 
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
 }

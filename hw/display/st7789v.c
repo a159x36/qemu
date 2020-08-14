@@ -33,7 +33,7 @@ enum {
 
 #define ESP32_SPI_REG_SIZE 0x1000
 
-static void esp32_spi_do_command(Esp32Spi2State *state, uint32_t cmd_reg);
+//static void esp32_spi_do_command(Esp32Spi2State *state, uint32_t cmd_reg);
 void update_irq(Esp32Spi2State *s);
 
 unsigned short frame_buffer[240 * 135];
@@ -165,7 +165,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             s->pin_reg = value;
             break;
         case A_SPI2_CMD:
-            esp32_spi_do_command(s, value);
+           // esp32_spi_do_command(s, value);
             if (value & 0x40000) {
                 value=s->outlink_reg;
                 if ((value & 0x20000000)) {
@@ -230,7 +230,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                 }
 
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                uint64_t ns_to_timeout = s->mosi_dlen_reg * 50+50;//25;
+                uint64_t ns_to_timeout = s->mosi_dlen_reg * 40;//25;
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
             }
             break;
@@ -239,7 +239,6 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             if((s->slave_reg & 0x10) && !(value & 0x10))
                 doirq=1;
             s->slave_reg = value;  // transaction done
-            // s->slave_reg &= ~0x10;
             if(doirq)
                 update_irq(s);
             break;
@@ -253,7 +252,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             break;
     }
 }
-
+/*
 typedef struct Esp32Spi2Transaction {
     int cmd_bytes;
     uint32_t cmd;
@@ -263,7 +262,7 @@ typedef struct Esp32Spi2Transaction {
     int data_rx_bytes;
     uint32_t *data;
 } Esp32Spi2Transaction;
-/*
+
 static void esp32_spi_txrx_buffer(Esp32SpiState *s, void *buf, int tx_bytes, int
 rx_bytes)
 {
@@ -303,9 +302,9 @@ static inline int bitlen_to_bytes(uint32_t val) {
     return (val + 1 + 7) /
            8; /* bitlen registers hold number of bits, minus one */
 }
-
+/*
 static void esp32_spi_do_command(Esp32Spi2State *s, uint32_t cmd_reg) {
-    /*
+    
     Esp32SpiTransaction t = {
         .cmd_bytes = 1
     };
@@ -402,9 +401,9 @@ static void esp32_spi_do_command(Esp32Spi2State *s, uint32_t cmd_reg) {
         return;
     }
     esp32_spi_transaction(s, &t);
-    */
+    
 }
-
+*/
 static const MemoryRegionOps esp32_spi_ops = {
     .read = esp32_spi_read,
     .write = esp32_spi_write,
