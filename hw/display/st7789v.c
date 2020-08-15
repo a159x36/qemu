@@ -48,6 +48,33 @@ void update_irq(Esp32Spi2State *s) {
         // s->slave_reg &= ~0x10;
     }
 }
+extern const struct {
+  guint          width;
+  guint          height;
+  guint          bytes_per_pixel; /* 2:RGB16, 3:RGB, 4:RGBA */ 
+  guint8         pixel_data[375 * 923 * 4 + 1];
+} ttgo_board_skin;
+void draw_skin(Esp32Spi2State *s);
+
+void draw_skin(Esp32Spi2State *s) {
+    DisplaySurface *surface = qemu_console_surface(s->con);
+    volatile unsigned *dest = (unsigned *)surface_data(surface);
+    for (int i = 0; i < ttgo_board_skin.height; i++)
+        for (int j = 0; j < ttgo_board_skin.width; j++) {
+            int index=(i*ttgo_board_skin.width+j)*4;
+            unsigned char red=ttgo_board_skin.pixel_data[index];
+            unsigned char green=ttgo_board_skin.pixel_data[index+1];
+            unsigned char blue=ttgo_board_skin.pixel_data[index+2];
+            unsigned char trans=ttgo_board_skin.pixel_data[index+3];
+            if(trans<200) {red=green=blue=0;trans=255;}
+            if(s->width<s->height) // portrait
+                dest[i*ttgo_board_skin.width+j]=(trans<<24) | (red<<16) | (green<<8) | blue; 
+            else
+                dest[(ttgo_board_skin.width-j-1)*ttgo_board_skin.height+i]=(trans<<24) | (red<<16) | (green<<8) | blue; 
+
+        }
+
+}
 
 static void esp32_spi_cs_set(Esp32Spi2State *s, int value)
 {
@@ -186,18 +213,19 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                     }
                     if(s->current_command==0x36 && (gpios & (1<<16))) {
                         if(cmd==0) {
-                            qemu_console_resize(s->con, 135 * MAGNIFY, 240 * MAGNIFY);
+                            qemu_console_resize(s->con, ttgo_board_skin.width, ttgo_board_skin.height);
                             s->width=135;
                             s->height=240;
                             s->x_offset=52;
                             s->y_offset=40;
                         } else {
-                            qemu_console_resize(s->con, 240 * MAGNIFY, 135 * MAGNIFY);
+                            qemu_console_resize(s->con, ttgo_board_skin.height,  ttgo_board_skin.width);
                             s->width=240;
                             s->height=135;
                             s->x_offset=40;
                             s->y_offset=53;
                         }
+                        draw_skin(s);
                     }
                     if(s->current_command==0x2a && (gpios & (1<<16))) { //CAS_SET
                         unsigned char xx[4];
@@ -437,11 +465,21 @@ static void st7789_update_display(void *opaque) {
                     int red = (fbv & 0xf800) >> 8;
                     int green = (fbv & 0x7e0) >> 3;
                     int blue = (fbv & 0x1f) << 3;
-                    *(dest + j * s->width * MAGNIFY * MAGNIFY + jj * s->width * MAGNIFY +
-                      i * MAGNIFY + ii) = (red << 16) | (green << 8) | blue;
+                    if(s->width>s->height) { // landscape
+                        int x=i*MAGNIFY+ii+126;
+                        int y=j*MAGNIFY+jj+83;
+                        *(dest + y*ttgo_board_skin.height+x) = (red << 16) | (green << 8) | blue;
+                    } else {
+                        int x=i*MAGNIFY+ii+63;
+                        int y=j*MAGNIFY+jj+126;
+                        *(dest + y*ttgo_board_skin.width+x) = (red << 16) | (green << 8) | blue;
+                    }
                 }
     s->redraw = 0;
-    dpy_gfx_update(s->con, 0, 0, s->width * MAGNIFY, s->height * MAGNIFY);
+    if(s->width>s->height)
+        dpy_gfx_update(s->con, 126, 83, s->width * MAGNIFY, s->height * MAGNIFY);
+    else
+        dpy_gfx_update(s->con, 63, 126, s->width * MAGNIFY, s->height * MAGNIFY);
     pp += 10;
 }
 static void st7789_invalidate_display(void *opaque) {

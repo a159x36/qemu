@@ -930,10 +930,11 @@ static gboolean gd_button_event(GtkWidget *widget, GdkEventButton *button,
                                 void *opaque)
 {
     VirtualConsole *vc = opaque;
-    GtkDisplayState *s = vc->s;
+//    GtkDisplayState *s = vc->s;
     InputButton btn;
 
-    /* implicitly grab the input at the first click in the relative mode */
+/*
+  //   implicitly grab the input at the first click in the relative mode 
     if (button->button == 1 && button->type == GDK_BUTTON_PRESS &&
         !qemu_input_is_absolute() && s->ptr_owner != vc) {
         if (!vc->window) {
@@ -944,6 +945,7 @@ static gboolean gd_button_event(GtkWidget *widget, GdkEventButton *button,
         }
         return TRUE;
     }
+*/
 
     if (button->button == 1) {
         btn = INPUT_BUTTON_LEFT;
@@ -1990,8 +1992,8 @@ static GSList *gd_vc_gfx_init(GtkDisplayState *s, VirtualConsole *vc,
 
     vc->label = qemu_console_get_label(con);
     vc->s = s;
-    vc->gfx.scale_x = 1.0;
-    vc->gfx.scale_y = 1.0;
+    vc->gfx.scale_x = 0.5;//1.0;
+    vc->gfx.scale_y = 0.5;//1.0;
 
 #if defined(CONFIG_OPENGL)
     if (display_opengl) {

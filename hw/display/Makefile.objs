@@ -14,7 +14,7 @@ common-obj-$(CONFIG_SII9022) += sii9022.o
 common-obj-$(CONFIG_SSD0303) += ssd0303.o
 common-obj-$(CONFIG_SSD0323) += ssd0323.o
 common-obj-$(CONFIG_XEN) += xenfb.o
-common-obj-$(CONFIG_ST7789V) += st7789v.o
+common-obj-$(CONFIG_ST7789V) += st7789v.o ttgo_board_skin.o
 
 common-obj-$(CONFIG_VGA_PCI) += vga-pci.o
 common-obj-$(CONFIG_VGA_ISA) += vga-isa.o
