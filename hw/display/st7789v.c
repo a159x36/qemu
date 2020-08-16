@@ -212,7 +212,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             s->current_command=cmd;
                     }
                     if(s->current_command==0x36 && (gpios & (1<<16))) {
-                        if(cmd==0) {
+                        if(cmd==0) { // portrait
                             qemu_console_resize(s->con, ttgo_board_skin.width, ttgo_board_skin.height);
                             s->width=135;
                             s->height=240;
@@ -254,12 +254,13 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             data+=(s->x_end-s->x_start+1)*2;
                         }
                         s->redraw = 1;
-                    }
-                }
+                                        
 
-                uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+                    }
+uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
                 uint64_t ns_to_timeout = s->mosi_dlen_reg * 40;//25;
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
+                }
             }
             break;
         case A_SPI2_SLAVE:
@@ -467,10 +468,10 @@ static void st7789_update_display(void *opaque) {
                     int blue = (fbv & 0x1f) << 3;
                     if(s->width>s->height) { // landscape
                         int x=i*MAGNIFY+ii+126;
-                        int y=j*MAGNIFY+jj+83;
+                        int y=j*MAGNIFY+jj+82;
                         *(dest + y*ttgo_board_skin.height+x) = (red << 16) | (green << 8) | blue;
                     } else {
-                        int x=i*MAGNIFY+ii+63;
+                        int x=i*MAGNIFY+ii+62;
                         int y=j*MAGNIFY+jj+126;
                         *(dest + y*ttgo_board_skin.width+x) = (red << 16) | (green << 8) | blue;
                     }
@@ -498,7 +499,8 @@ static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     s->con = graphic_console_init(dev, 0, &st7789_ops, s);
     s->width=240;
     s->height=135;
-    qemu_console_resize(s->con, s->width * MAGNIFY, s->height * MAGNIFY);
+    qemu_console_resize(s->con, ttgo_board_skin.height, ttgo_board_skin.width);
+    draw_skin(s);
 }
 
 static void esp32_spi_init(Object *obj) {
