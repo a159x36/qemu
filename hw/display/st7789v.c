@@ -223,7 +223,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             s->width=240;
                             s->height=135;
                             s->x_offset=40;
-                            s->y_offset=53;
+                            s->y_offset=52;
                         }
                         draw_skin(s);
                     }
@@ -245,6 +245,8 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                     }
                 
                     if (s->current_command==0x2c && (gpios & (1<<16))) {
+                    //    printf("draw(%d,%d,%d,%d)\n",s->x_start-s->x_offset,
+                    //    s->y_start-s->y_offset,s->x_end-s->x_start+1,s->y_end-s->y_offset);
                         for(int y=s->y_start-s->y_offset;y<=s->y_end-s->y_offset;y++) {
                             if(y>=0 && y<s->height) {
                                 address_space_read(&address_space_memory, data,
@@ -254,10 +256,8 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             data+=(s->x_end-s->x_start+1)*2;
                         }
                         s->redraw = 1;
-                                        
-
                     }
-uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+                uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
                 uint64_t ns_to_timeout = s->mosi_dlen_reg * 40;//25;
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
                 }
