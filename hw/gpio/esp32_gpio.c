@@ -89,7 +89,7 @@ static void set_gpio(void *opaque, int n, int val) {
     if(n<32) {
         int oldval=(s->gpio_in>>n) & 1;
         int int_type=(s->gpio_pin[n]>>7) & 7;
-//        printf("set_gpio %d %d %x %x %x \n",n,val,s->gpio_status,(s->gpio_pin[n]), int_type);
+      //  printf("set_gpio %d %d %x %x %x \n",n,val,s->gpio_status,(s->gpio_pin[n]), int_type);
         s->gpio_in &= ~(1<<n);
         s->gpio_in |= (val<<n);
         int irq=get_triggering(int_type, oldval, val);
@@ -106,7 +106,7 @@ static void set_gpio(void *opaque, int n, int val) {
         int n1=n-32;
         int oldval=(s->gpio_in1>>n1) & 1;
         int int_type=(s->gpio_pin[n]>>7) & 7;
-//        printf("set_gpio1 %d %d %x %x %x \n",n,val,s->gpio_status1,(s->gpio_pin[n]), int_type);
+     //   printf("set_gpio1 %d %d %x %x %x %x %x\n",n,val,s->gpio_status1,(s->gpio_pin[n]), int_type,s->gpio_in1,s->gpio_in );
         s->gpio_in1 &= ~(1<<n1);
         s->gpio_in1 |= (val<<n1);
         int irq=get_triggering(int_type, oldval, val);
@@ -210,6 +210,7 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
     InputMoveEvent *move;
     InputBtnEvent *btn;
     static int xpos=0,ypos=0;
+    //printf("event type %d\n",evt->type);
     switch (evt->type) {
         case INPUT_EVENT_KIND_KEY:
             qcode=qemu_input_key_value_to_qcode(evt->u.key.data->key);
@@ -238,11 +239,18 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
         case INPUT_EVENT_KIND_BTN:
             btn = evt->u.btn.data;
             
-        //printf("btn %d %d %d %d\n",xpos, ypos,  btn->button, btn->down);
+           // printf("btn %d %d %d %d\n",xpos, ypos,  btn->button, btn->down);
             QemuConsole *con = qemu_console_lookup_by_index(0);
             DisplaySurface *surface=qemu_console_surface(con);
             int portrait=surface_height(surface)>surface_width(surface);
             up=(1-btn->down);
+            if(up) {
+                if(!(s->gpio_in&1))
+                    set_gpio(s,0,up);
+                if(!(s->gpio_in1&8))
+                    set_gpio(s,35,up);
+                break;
+            }
             if(portrait) {
                 if(xpos>24996 && xpos<27962 && ypos>28481 && ypos<30347) {
                     set_gpio(s,35,up);
