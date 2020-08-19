@@ -22,8 +22,6 @@
 #include "hw/gpio/esp32_gpio.h"
 #include "sysemu/runstate.h"
 
-//static unsigned gpio_in_low=0x1;
-//static unsigned gpio_in_high=0x8;
 
 static uint64_t esp32_gpio_read(void *opaque, hwaddr addr, unsigned int size)
 {
@@ -310,6 +308,7 @@ static void esp32_gpio_class_init(ObjectClass *klass, void *data)
     dc->reset = esp32_gpio_reset;
     dc->realize = esp32_gpio_realize;
     device_class_set_props(dc, esp32_gpio_properties);
+    
 }
 
 static const TypeInfo esp32_gpio_info = {
