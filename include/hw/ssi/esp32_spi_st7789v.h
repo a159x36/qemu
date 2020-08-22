@@ -39,12 +39,12 @@ typedef struct Esp32Spi2State {
     uint32_t redraw;
     uint32_t width;
     uint32_t height;
-    uint32_t x_start;
-    uint32_t x_end;
-    uint32_t x_offset;
-    uint32_t y_start;
-    uint32_t y_end;
-    uint32_t y_offset;
+    int32_t x_start;
+    int32_t x_end;
+    int32_t x_offset;
+    int32_t y_start;
+    int32_t y_end;
+    int32_t y_offset;
 
 
     QEMUTimer spi_timer;

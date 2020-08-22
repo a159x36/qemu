@@ -136,7 +136,9 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size) {
             r = s->dmaconfig_reg;
             break;
     }
-    if (DEBUG) qemu_log("spi_read %lx, %lx\n", addr, r);
+    #if DEBUG
+    qemu_log("spi_read %lx, %lx\n", addr, r);
+    #endif
     // update_irq(s);
     return r;
 }
@@ -151,8 +153,10 @@ static void esp32_spi_timer_cb(void *opaque) {
 static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             unsigned int size) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
-    if (DEBUG) qemu_log("spi_write %lx, %lx\n", addr, value);
-    int doirq;
+    #if DEBUG
+    qemu_log("spi_write %lx, %lx\n", addr, value);
+    #endif
+   // int doirq;
     switch (addr) {
         case A_SPI2_W0 ... A_SPI2_W0 +
             (ESP32_SPI2_BUF_WORDS - 1) * sizeof(uint32_t):
@@ -223,7 +227,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             s->width=240;
                             s->height=135;
                             s->x_offset=40;
-                            s->y_offset=52;
+                            s->y_offset=53;
                         }
                         draw_skin(s);
                     }
@@ -264,11 +268,11 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             }
             break;
         case A_SPI2_SLAVE:
-            doirq=0;
-            if((s->slave_reg & 0x10) && !(value & 0x10))
-                doirq=1;
+          //  doirq=0;
+          //  if((s->slave_reg & 0x10) && !(value & 0x10))
+          //      doirq=1;
             s->slave_reg = value;  // transaction done
-            if(doirq)
+           // if(doirq)
                 update_irq(s);
             break;
 
@@ -280,6 +284,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             s->dmaconfig_reg = value;
             break;
     }
+
 }
 /*
 typedef struct Esp32Spi2Transaction {
@@ -499,6 +504,9 @@ static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     s->con = graphic_console_init(dev, 0, &st7789_ops, s);
     s->width=240;
     s->height=135;
+    s->x_offset=40;
+    s->y_offset=53;
+
     qemu_console_resize(s->con, ttgo_board_skin.height, ttgo_board_skin.width);
     draw_skin(s);
 }
