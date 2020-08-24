@@ -262,7 +262,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                         s->redraw = 1;
                     }
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                uint64_t ns_to_timeout = s->mosi_dlen_reg * 40;//25;
+                uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;//25;
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
                 }
             }
@@ -457,6 +457,9 @@ int pp = 0;
 static void st7789_update_display(void *opaque) {
     Esp32Spi2State *s = (Esp32Spi2State *)opaque;
     if (!s->redraw) return;
+    int gpios;
+    address_space_read(&address_space_memory, 0x3FF44004,
+            MEMTXATTRS_UNSPECIFIED, &gpios, 4);
     //  printf("update disp\n");
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
@@ -471,6 +474,11 @@ static void st7789_update_display(void *opaque) {
                     int red = (fbv & 0xf800) >> 8;
                     int green = (fbv & 0x7e0) >> 3;
                     int blue = (fbv & 0x1f) << 3;
+                    if(!(gpios & (1<<4))) {
+                        red=red>>3;
+                        green=green>>3;
+                        blue=blue>>3;
+                    }
                     if(s->width>s->height) { // landscape
                         int x=i*MAGNIFY+ii+126;
                         int y=j*MAGNIFY+jj+82;

@@ -25,7 +25,8 @@ TARGET_LIST=xtensa-softmmu
         --enable-gtk \
         --enable-sdl \
         --disable-vnc
-x86_64-w64-mingw32-strip /tmp/qemu-test/build/xtensa-softmmu/qemu-system-xtensaw
+x86_64-w64-mingw32-strip /tmp/qemu-test/build/xtensa-softmmu/qemu-system-xtensaw.exe
+cp /tmp/qemu-test/build/xtensa-softmmu/qemu-system-xtensaw.exe /mnt/windows
 #    install_qemu
 #    make installer
 #    make clean

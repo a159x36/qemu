@@ -94,7 +94,7 @@ static void set_gpio(void *opaque, int n, int val) {
         s->gpio_in |= (val<<n);
         int irq=get_triggering(int_type, oldval, val);
         // says bit 16 in the ref manual, is that wrong?
-        if(irq && (s->gpio_pin[n] & (1<<15))) {
+        if(irq && (s->gpio_pin[n] & (1<<15))) { // pro cpu int enable
             qemu_set_irq(s->irq,1);
             s->gpio_pcpu_int |= (1 << n);
         }
@@ -121,12 +121,16 @@ static void set_gpio(void *opaque, int n, int val) {
         }
     }
 }
+extern const struct {int width;int height;} ttgo_board_skin;
+
 static void esp32_gpio_write(void *opaque, hwaddr addr,
                        uint64_t value, unsigned int size)
 {
   Esp32GpioState *s = ESP32_GPIO(opaque);
   int clearirq;
-//  printf("gpio_write %lx %lx\n",addr,value);
+  uint32_t oldvalue;
+  oldvalue=s->gpio_out;
+  //printf("gpio_write %lx %lx\n",addr,value);
   switch (addr) {
     case 4:
     s->gpio_out = value;
@@ -189,7 +193,25 @@ static void esp32_gpio_write(void *opaque, hwaddr addr,
   if(addr>=0x88 && addr<0x130) {
       int n=(addr-0x88)/4;
       s->gpio_pin[n]=value;
-  }
+    }
+    if((s->gpio_out & (1<<4)) != (oldvalue & 1<<4)) {
+        int bl=(s->gpio_out>>4)&1;
+        QemuConsole *con = qemu_console_lookup_by_index(0);
+        DisplaySurface *surface=qemu_console_surface(con);
+        int portrait=surface_height(surface)>surface_width(surface);
+        volatile unsigned *dest = (unsigned *)surface_data(surface);
+        uint32_t px=bl?(64<<16)|(64<<8)|(64):0;
+        if(portrait) {
+            for(int y=0;y<240*2;y++)
+                for(int x=0;x<135*2;x++)
+                    dest[(y+126)*ttgo_board_skin.width+x+62]=px^(rand()&0x0f0f0f);
+        } else {
+            for(int y=0;y<135*2;y++)
+                for(int x=0;x<240*2;x++)
+                    dest[(y+82)*ttgo_board_skin.height+x+126]=px^(rand()&0x0f0f0f);
+        }
+        dpy_gfx_update(con, 0, 0, surface_width(surface), surface_height(surface));
+    }
 }
 
 static const MemoryRegionOps uart_ops = {
