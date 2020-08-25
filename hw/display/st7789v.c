@@ -262,7 +262,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                         s->redraw = 1;
                     }
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;//25;
+                uint64_t ns_to_timeout = s->mosi_dlen_reg * 35;//25;
                 timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
                 }
             }
