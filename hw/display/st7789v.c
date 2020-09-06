@@ -199,16 +199,20 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
            // esp32_spi_do_command(s, value);
             if (value & 0x40000) {
                 value=s->outlink_reg;
+		int cmd=0;
+		int data=0 ;
+		char *dr=(char *)(s->data_reg);
+
                 if ((value & 0x20000000)) {
                     unsigned addr = (0x3ff00000 + (value & 0xfffff));
                     int v[3];
                     address_space_read(&address_space_memory, addr,
                             MEMTXATTRS_UNSPECIFIED, v, 12);
                    // int size = v[0] & 0xfff;
-                    int data = v[1];
-                    int cmd=0;
+                    data = v[1];
                     address_space_read(&address_space_memory, data,
                             MEMTXATTRS_UNSPECIFIED, &cmd, 1);
+		} else cmd= s->data_reg[0] & 0xff;
                     int gpios;
                     address_space_read(&address_space_memory, 0x3FF44004,
                             MEMTXATTRS_UNSPECIFIED, &gpios, 4);
@@ -216,7 +220,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             s->current_command=cmd;
                     }
                     if(s->current_command==0x36 && (gpios & (1<<16))) {
-                        if(cmd==0) { // portrait
+                        if(cmd==0 || cmd==8) { // portrait
                             qemu_console_resize(s->con, ttgo_board_skin.width, ttgo_board_skin.height);
                             s->width=135;
                             s->height=240;
@@ -233,24 +237,31 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                     }
                     if(s->current_command==0x2a && (gpios & (1<<16))) { //CAS_SET
                         unsigned char xx[4];
+			if ((value & 0x20000000))
                         address_space_read(&address_space_memory, data,
                             MEMTXATTRS_UNSPECIFIED, xx, 4);
+			else { for(int i=0;i<4;i++) xx[i]=dr[i];}
                         s->x_start=xx[1]+xx[0]*256;
                    //     if(s->x_start-s->x_offset <0)
                             
                         s->x_end=xx[3]+xx[2]*256;
+			s->x=s->x_start;
                     }
                     if(s->current_command==0x2b && (gpios & (1<<16))) { //RAS_SET
                         unsigned char xx[4];
+			if ((value & 0x20000000))
                         address_space_read(&address_space_memory, data,
                             MEMTXATTRS_UNSPECIFIED, xx, 4);
+			else { for(int i=0;i<4;i++) xx[i]=dr[i];}
                         s->y_start=xx[1]+xx[0]*256;
                         s->y_end=xx[3]+xx[2]*256;
+			s->y=s->y_start;
                     }
                 
                     if (s->current_command==0x2c && (gpios & (1<<16))) {
                     //    printf("draw(%d,%d,%d,%d)\n",s->x_start-s->x_offset,
                     //    s->y_start-s->y_offset,s->x_end-s->x_start+1,s->y_end-s->y_offset);
+			if ((value & 0x20000000))
                         for(int y=s->y_start-s->y_offset;y<=s->y_end-s->y_offset;y++) {
                             if(y>=0 && y<s->height) {
                                 address_space_read(&address_space_memory, data,
@@ -259,11 +270,27 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             }
                             data+=(s->x_end-s->x_start+1)*2;
                         }
+			else {
+				for(int i=0;i<(s->mosi_dlen_reg+1)/16;i++) {
+					uint16_t *udr=(uint16_t *)(s->data_reg);
+					uint16_t offset=(s->y-s->y_offset)*s->width+s->x-s->x_offset;
+					if(offset<(135*240))
+						frame_buffer[offset]=udr[i];
+					s->x++;
+					if(s->x > s->x_end) {
+						s->x=s->x_start;
+						s->y++;
+					}
+				}
+			}
                         s->redraw = 1;
                     }
-                uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                uint64_t ns_to_timeout = s->mosi_dlen_reg * 35;//25;
-                timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
+		if(value & 0x20000000 || (s->y > s->y_end)) {
+		  s->y=s->y_start;
+		  s->x=s->x_start;
+                  uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+                  uint64_t ns_to_timeout = s->mosi_dlen_reg * 35;//25;
+                  timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
                 }
             }
             break;
