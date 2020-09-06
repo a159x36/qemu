@@ -218,8 +218,8 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                             MEMTXATTRS_UNSPECIFIED, &gpios, 4);
                     if(!(gpios & (1<<16))) {
                             s->current_command=cmd;
-                    }
-                    if(s->current_command==0x36 && (gpios & (1<<16))) {
+                    } else {
+                    if(s->current_command==0x36) {
                         if(cmd==0 || cmd==8) { // portrait
                             qemu_console_resize(s->con, ttgo_board_skin.width, ttgo_board_skin.height);
                             s->width=135;
@@ -235,7 +235,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                         }
                         draw_skin(s);
                     }
-                    if(s->current_command==0x2a && (gpios & (1<<16))) { //CAS_SET
+                    if(s->current_command==0x2a) { //CAS_SET
                         unsigned char xx[4];
 			if ((value & 0x20000000))
                         address_space_read(&address_space_memory, data,
@@ -247,7 +247,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                         s->x_end=xx[3]+xx[2]*256;
 			s->x=s->x_start;
                     }
-                    if(s->current_command==0x2b && (gpios & (1<<16))) { //RAS_SET
+                    if(s->current_command==0x2b) { //RAS_SET
                         unsigned char xx[4];
 			if ((value & 0x20000000))
                         address_space_read(&address_space_memory, data,
@@ -257,8 +257,11 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                         s->y_end=xx[3]+xx[2]*256;
 			s->y=s->y_start;
                     }
+                    if(s->current_command==0xb0) { // RAM_CTRL
+			s->little_endian=1;
+                    }
                 
-                    if (s->current_command==0x2c && (gpios & (1<<16))) {
+                    if (s->current_command==0x2c) {
                     //    printf("draw(%d,%d,%d,%d)\n",s->x_start-s->x_offset,
                     //    s->y_start-s->y_offset,s->x_end-s->x_start+1,s->y_end-s->y_offset);
 			if ((value & 0x20000000))
@@ -267,6 +270,10 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                                 address_space_read(&address_space_memory, data,
                                         MEMTXATTRS_UNSPECIFIED, frame_buffer+y*s->width+s->x_start-s->x_offset,
                                         (s->x_end-s->x_start+1)*2);
+				if(!s->little_endian)
+					for(int i=y*s->width+s->x_start-s->x_offset; i<(s->x_end-s->x_start+1); i++) {
+						frame_buffer[i]=(frame_buffer[i]<<8)|(frame_buffer[i]>>8);
+					} 
                             }
                             data+=(s->x_end-s->x_start+1)*2;
                         }
@@ -274,6 +281,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
 				for(int i=0;i<(s->mosi_dlen_reg+1)/16;i++) {
 					uint16_t *udr=(uint16_t *)(s->data_reg);
 					uint16_t offset=(s->y-s->y_offset)*s->width+s->x-s->x_offset;
+					if(!s->little_endian) {udr[i]=(udr[i]<<8)|(udr[i]>>8);}
 					if(offset<(135*240))
 						frame_buffer[offset]=udr[i];
 					s->x++;
@@ -285,6 +293,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
 			}
                         s->redraw = 1;
                     }
+                }
 		if(value & 0x20000000 || (s->y > s->y_end)) {
 		  s->y=s->y_start;
 		  s->x=s->x_start;

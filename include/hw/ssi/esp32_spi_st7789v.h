@@ -47,7 +47,7 @@ typedef struct Esp32Spi2State {
     int32_t y_offset;
     int32_t x;
     int32_t y;
-
+    int32_t little_endian;
     QEMUTimer spi_timer;
     uint32_t data_reg[ESP32_SPI2_BUF_WORDS];
 } Esp32Spi2State;
