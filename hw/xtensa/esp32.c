@@ -103,7 +103,7 @@ typedef struct Esp32SocState {
     Esp32TimgState timg[ESP32_TIMG_COUNT];
     Esp32SpiState spi[ESP32_SPI_COUNT];
     Esp32Spi2State spi2;
-//    Esp32SpiState spi3;
+    Esp32Spi2State spi3;
     Esp32ShaState sha;
     Esp32EfuseState efuse;
     Esp32SensState sens;
@@ -207,7 +207,7 @@ static void esp32_soc_reset(DeviceState *dev)
             device_cold_reset(DEVICE(&s->spi[i]));
         }
 	device_cold_reset(DEVICE(&s->spi2));
-//	device_cold_reset(DEVICE(&s->spi3));
+	device_cold_reset(DEVICE(&s->spi3));
         device_cold_reset(DEVICE(&s->efuse));
         if (s->eth) {
             device_cold_reset(s->eth);
@@ -439,27 +439,13 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     }
     object_property_set_bool(OBJECT(&s->spi2), true, "realized", &error_abort);
     esp32_soc_add_periph_device(sys_mem, &s->spi2, spi_base[2]);
-//    MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->spi2), 0);
-//    memory_region_add_subregion_overlap(sys_mem, spi_base[3], mr, 0);
-
-//    MemoryRegion *mr_apb = g_new(MemoryRegion, 1);
-//    char *name = g_strdup_printf("mr-apb-0x%08x", (uint32_t) spi_base[3]);
-//    memory_region_init_alias(mr_apb, OBJECT(&s->spi2), name, mr, 0, memory_region_size(mr));
-//    memory_region_add_subregion_overlap(sys_mem, spi_base[3] - DR_REG_DPORT_APB_BASE + APB_REG_BASE, mr_apb, 0);
-//    g_free(name);
-
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI2_INTR_SOURCE ));
 
-//    object_property_set_bool(OBJECT(&s->spi3), true, "realized", &error_abort);
-//    esp32_soc_add_periph_device(sys_mem, &s->spi2, spi_base[3]);
-    MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(&s->spi2), 0);
-    MemoryRegion *mr_apb = g_new(MemoryRegion, 1);
-    char *name = g_strdup_printf("mr-apb-0x%08x", (uint32_t) spi_base[3]);
-    memory_region_init_alias(mr_apb, OBJECT(&s->spi2), name, mr, 0, memory_region_size(mr));
-    memory_region_add_subregion_overlap(sys_mem, spi_base[3], mr_apb, 0);
-//    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2), 0,
-//                           qdev_get_gpio_in(intmatrix_dev, ETS_SPI3_INTR_SOURCE ));
+    object_property_set_bool(OBJECT(&s->spi3), true, "realized", &error_abort);
+    esp32_soc_add_periph_device(sys_mem, &s->spi3, spi_base[3]);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi3), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_SPI3_INTR_SOURCE ));
 //    sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2),0, qdev_get_gpio_in(intmatrix_dev, ETS_SPI2_DMA_INTR_SOURCE));
 
 
@@ -562,8 +548,8 @@ static void esp32_soc_init(Object *obj)
     }
     object_initialize_child(obj, "spi2", &s->spi2, sizeof(s->spi2),
                                 TYPE_ESP32_ST7789V, &error_abort, NULL);
-//    object_initialize_child(obj, "spi3", &s->spi3, sizeof(s->spi3),
-//                                TYPE_ESP32_SPI, &error_abort, NULL);
+    object_initialize_child(obj, "spi3", &s->spi3, sizeof(s->spi3),
+                                TYPE_ESP32_ST7789V, &error_abort, NULL);
 
     object_initialize_child(obj, "rng", &s->rng, sizeof(s->rng),
                             TYPE_ESP32_RNG, &error_abort, NULL);

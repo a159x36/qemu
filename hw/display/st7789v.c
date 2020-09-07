@@ -38,6 +38,8 @@ void update_irq(Esp32Spi2State *s);
 
 unsigned short frame_buffer[240 * 135];
 
+static int redraw=0;
+
 void update_irq(Esp32Spi2State *s) {
     if (s->slave_reg & 0x200) {
         if (s->slave_reg & 0x10)
@@ -291,7 +293,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
 					}
 				}
 			}
-                        s->redraw = 1;
+                        redraw = 1;
                     }
                 }
 		if(value & 0x20000000 || (s->y > s->y_end)) {
@@ -492,7 +494,7 @@ static void esp32_spi_reset(DeviceState *dev) {
 int pp = 0;
 static void st7789_update_display(void *opaque) {
     Esp32Spi2State *s = (Esp32Spi2State *)opaque;
-    if (!s->redraw) return;
+    if (!redraw) return;
     int gpios;
     address_space_read(&address_space_memory, 0x3FF44004,
             MEMTXATTRS_UNSPECIFIED, &gpios, 4);
@@ -525,7 +527,7 @@ static void st7789_update_display(void *opaque) {
                         *(dest + y*ttgo_board_skin.width+x) = (red << 16) | (green << 8) | blue;
                     }
                 }
-    s->redraw = 0;
+    redraw = 0;
     if(s->width>s->height)
         dpy_gfx_update(s->con, 126, 83, s->width * MAGNIFY, s->height * MAGNIFY);
     else
@@ -533,8 +535,8 @@ static void st7789_update_display(void *opaque) {
     pp += 10;
 }
 static void st7789_invalidate_display(void *opaque) {
-    Esp32Spi2State *s = (Esp32Spi2State *)opaque;
-    s->redraw = 1;
+//    Esp32Spi2State *s = (Esp32Spi2State *)opaque;
+    redraw = 1;
 }
 
 static const GraphicHwOps st7789_ops = {
@@ -544,15 +546,20 @@ static const GraphicHwOps st7789_ops = {
 
 static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(dev);
-    printf("realise\n");
-    s->con = graphic_console_init(dev, 0, &st7789_ops, s);
-    s->width=240;
-    s->height=135;
-    s->x_offset=40;
-    s->y_offset=53;
-
-    qemu_console_resize(s->con, ttgo_board_skin.height, ttgo_board_skin.width);
-    draw_skin(s);
+    static QemuConsole *console;
+//    printf("realise\n");
+    if(console==0) {
+      console = graphic_console_init(dev, 0, &st7789_ops, s);
+      s->con = console;
+      s->width=240;
+      s->height=135;
+      s->x_offset=40;
+      s->y_offset=53;
+      qemu_console_resize(s->con, ttgo_board_skin.height, ttgo_board_skin.width);
+      draw_skin(s);
+    } else {
+      s->con = console;
+    }
 }
 
 static void esp32_spi_init(Object *obj) {
