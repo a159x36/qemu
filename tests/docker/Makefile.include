@@ -66,7 +66,7 @@ docker-image-%: $(DOCKER_FILES_DIR)/%.docker
 			$(if $(DOCKER_REGISTRY),--registry $(DOCKER_REGISTRY))) \
 		$(if $(NOUSER),,--add-current-user) \
 		$(if $(EXTRA_FILES),--extra-files $(EXTRA_FILES))\
-		$(if $(EXECUTABLE),--include-executable=$(EXECUTABLE)),\
+		$(if $(EXECUTABLE),--include-executable=$(EXECUTABLE))\
 		"BUILD","$*")
 
 # Special rule for debootstraped binfmt linux-user images

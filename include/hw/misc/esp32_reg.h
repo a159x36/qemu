@@ -140,7 +140,7 @@
 #define ESP32_UART_COUNT            3
 #define ESP32_FRC_COUNT             2
 #define ESP32_TIMG_COUNT            2
-#define ESP32_SPI_COUNT             4
+#define ESP32_SPI_COUNT             2
 #define ESP32_I2C_COUNT             2
 #define ESP32_RTC_CNTL_SCRATCH_REG_COUNT     8
 

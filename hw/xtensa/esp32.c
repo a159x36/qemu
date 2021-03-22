@@ -23,6 +23,7 @@
 #include "hw/irq.h"
 #include "hw/i2c/i2c.h"
 #include "hw/qdev-properties.h"
+#include "hw/ssi/esp32_spi_st7789v.h"
 #include "hw/xtensa/esp32.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/reset.h"
@@ -174,10 +175,13 @@ static void esp32_soc_reset(DeviceState *dev)
         s->timg[0].flash_boot_mode = flash_boot_mode;
         for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
             device_cold_reset(DEVICE(&s->spi[i]));
+            device_cold_reset(DEVICE(&s->spi2[i]));
         }
         for (int i = 0; i < ESP32_I2C_COUNT; i++) {
             device_cold_reset(DEVICE(&s->i2c[i]));
         }
+//	device_cold_reset(DEVICE(&s->spi2));
+//	device_cold_reset(DEVICE(&s->spi3));
         device_cold_reset(DEVICE(&s->efuse));
         if (s->eth) {
             device_cold_reset(s->eth);
@@ -378,6 +382,7 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
 
     qdev_realize(DEVICE(&s->gpio), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->gpio, DR_REG_GPIO_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->gpio),0,qdev_get_gpio_in(intmatrix_dev, ETS_GPIO_INTR_SOURCE));
 
     for (int i = 0; i < ESP32_UART_COUNT; ++i) {
         const hwaddr uart_base[] = {DR_REG_UART_BASE, DR_REG_UART1_BASE, DR_REG_UART2_BASE};
@@ -417,18 +422,26 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
                                     qdev_get_gpio_in_named(dev, ESP32_TIMG_WDT_SYS_RESET_GPIO, i));
     }
     s->timg[0].wdt_en_at_reset = true;
-
-    for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
-        const hwaddr spi_base[] = {
+    const hwaddr spi_base[] = {
             DR_REG_SPI0_BASE, DR_REG_SPI1_BASE, DR_REG_SPI2_BASE, DR_REG_SPI3_BASE
-        };
+    };
+    for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
+        
         qdev_realize(DEVICE(&s->spi[i]), &s->periph_bus, &error_fatal);
 
         esp32_soc_add_periph_device(sys_mem, &s->spi[i], spi_base[i]);
 
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi[i]), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + i));
+        qdev_realize(DEVICE(&s->spi2[i]), &s->periph_bus, &error_fatal);
+
+        esp32_soc_add_periph_device(sys_mem, &s->spi2[i], spi_base[i+2]);
+
+        sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2[i]), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + 2+ i));
+
     }
+
 
     for (int i = 0; i < ESP32_I2C_COUNT; i++) {
         const hwaddr i2c_base[] = {
@@ -450,6 +463,11 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->efuse), 0,
                        qdev_get_gpio_in(intmatrix_dev, ETS_EFUSE_INTR_SOURCE));
 
+//    object_property_set_bool(OBJECT(&s->sens), true, "realized", &error_abort);
+    qdev_realize(DEVICE(&s->sens), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->sens, DR_REG_SENS_BASE);
+
+
     qdev_realize(DEVICE(&s->flash_enc), &s->periph_bus, &error_abort);
     esp32_soc_add_periph_device(sys_mem, &s->flash_enc, DR_REG_SPI_ENCRYPT_BASE);
 
@@ -462,7 +480,7 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
 
     esp32_soc_add_unimp_device(sys_mem, "esp32.analog", DR_REG_ANA_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_RTCIO_BASE, 0x400);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_SENS_BASE, 0x400);
+    //esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_SENS_BASE, 0x400);
     esp32_soc_add_unimp_device(sys_mem, "esp32.iomux", DR_REG_IO_MUX_BASE, 0x2000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.hinf", DR_REG_HINF_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.slc", DR_REG_SLC_BASE, 0x1000);
@@ -470,7 +488,9 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.apbctrl", DR_REG_APB_CTRL_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s0", DR_REG_I2S_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s1", DR_REG_I2S1_BASE, 0x1000);
-
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x4000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF5c000 , 0x2000);
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
 }
 
@@ -536,11 +556,12 @@ static void esp32_soc_init(Object *obj)
         snprintf(name, sizeof(name), "timg%d", i);
         object_initialize_child(obj, name, &s->timg[i], TYPE_ESP32_TIMG);
     }
-
     for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
         snprintf(name, sizeof(name), "spi%d", i);
         object_initialize_child(obj, name, &s->spi[i], TYPE_ESP32_SPI);
     }
+    object_initialize_child(obj, "spi2", &s->spi2[0], TYPE_ESP32_ST7789V);
+    object_initialize_child(obj, "spi3", &s->spi2[1], TYPE_ESP32_ST7789V);
 
     for (int i = 0; i < ESP32_I2C_COUNT; ++i) {
         snprintf(name, sizeof(name), "i2c%d", i);
@@ -552,6 +573,8 @@ static void esp32_soc_init(Object *obj)
     object_initialize_child(obj, "sha", &s->sha, TYPE_ESP32_SHA);
 
     object_initialize_child(obj, "rsa", &s->rsa, TYPE_ESP32_RSA);
+
+    object_initialize_child(obj, "sens", &s->sens, TYPE_ESP32_SENS);
 
     object_initialize_child(obj, "efuse", &s->efuse, TYPE_ESP32_EFUSE);
 
@@ -591,6 +614,7 @@ static void esp32_soc_register_types(void)
 }
 
 type_init(esp32_soc_register_types)
+
 
 
 static uint64_t translate_phys_addr(void *opaque, uint64_t addr)

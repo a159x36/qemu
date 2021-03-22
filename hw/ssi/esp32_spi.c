@@ -88,16 +88,20 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size)
         r = 0;
         break;
     }
+//    qemu_log("spi_read %lx, %lx\n",addr, r);
     return r;
 }
 
 static void esp32_spi_write(void *opaque, hwaddr addr,
                        uint64_t value, unsigned int size)
 {
+//    qemu_log("spi_write %lx, %lx\n",addr, value);
+
     Esp32SpiState *s = ESP32_SPI(opaque);
     switch (addr) {
     case A_SPI_W0 ... A_SPI_W0 + (ESP32_SPI_BUF_WORDS - 1) * sizeof(uint32_t):
         s->data_reg[(addr - A_SPI_W0) / sizeof(uint32_t)] = value;
+  //      qemu_log("spi_data %lx, %lx\n",addr, value);
         break;
     case A_SPI_ADDR:
         s->addr_reg = value;
@@ -133,6 +137,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr,
         s->pin_reg = value;
         break;
     case A_SPI_CMD:
+//        qemu_log("spi_cmd %lx, %lx\n",addr, value);
         esp32_spi_do_command(s, value);
         break;
     }
@@ -173,6 +178,7 @@ static void esp32_spi_cs_set(Esp32SpiState *s, int value)
 
 static void esp32_spi_transaction(Esp32SpiState *s, Esp32SpiTransaction *t)
 {
+//qemu_log("spi_transaction %x, %x, %ls, %x\n",t->cmd,t->addr,t->data, t->data_tx_bytes);
     esp32_spi_cs_set(s, 0);
     esp32_spi_txrx_buffer(s, &t->cmd, t->cmd_bytes, 0);
     esp32_spi_txrx_buffer(s, &t->addr, t->addr_bytes, 0);

@@ -16,6 +16,7 @@
 #include "hw/timer/esp32_timg.h"
 #include "hw/misc/esp32_crosscore_int.h"
 #include "hw/ssi/esp32_spi.h"
+#include "hw/misc/esp32_sens.h"
 #include "hw/i2c/esp32_i2c.h"
 #include "hw/nvram/esp32_efuse.h"
 #include "hw/xtensa/esp32_intc.h"
@@ -37,10 +38,12 @@ typedef struct Esp32SocState {
     Esp32FrcTimerState frc_timer[ESP32_FRC_COUNT];
     Esp32TimgState timg[ESP32_TIMG_COUNT];
     Esp32SpiState spi[ESP32_SPI_COUNT];
+    Esp32Spi2State spi2[ESP32_SPI_COUNT];
     Esp32I2CState i2c[ESP32_I2C_COUNT];
     Esp32ShaState sha;
     Esp32RsaState rsa;
     Esp32EfuseState efuse;
+    Esp32SensState sens;
     Esp32FlashEncryptionState flash_enc;
     DeviceState *eth;
 

@@ -16,20 +16,18 @@
 requires mingw dtc
 
 cd "$BUILD_DIR"
-
-for prefix in x86_64-w64-mingw32- i686-w64-mingw32-; do
-    TARGET_LIST=${TARGET_LIST:-$DEF_TARGET_LIST} \
-        build_qemu --cross-prefix=$prefix \
-        --enable-trace-backends=simple \
-        --enable-gnutls \
-        --enable-nettle \
-        --enable-curl \
-        --enable-vnc \
-        --enable-bzip2 \
-        --enable-guest-agent \
-        --enable-docs
-    install_qemu
-    make installer
-    make clean
-
-done
+TARGET_LIST=xtensa-softmmu
+#'--cross-prefix=x86_64-w64-mingw32-' '--target-list=xtensa-softmmu' '--disable-capstone' '--enable-gtk' '--enable-sdl' '--disable-vnc'
+#for prefix in x86_64-w64-mingw32- i686-w64-mingw32-; do
+#    TARGET_LIST=${TARGET_LIST:-$DEF_TARGET_LIST} \
+        build_qemu --cross-prefix=x86_64-w64-mingw32- \
+        --disable-capstone \
+        --enable-gtk \
+        --enable-sdl \
+        --disable-vnc
+x86_64-w64-mingw32-strip /tmp/qemu-test/build/xtensa-softmmu/qemu-system-xtensaw.exe
+cp /tmp/qemu-test/build/xtensa-softmmu/qemu-system-xtensaw.exe /mnt/windows
+#    install_qemu
+#    make installer
+#    make clean
+#done
