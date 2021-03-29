@@ -55,7 +55,7 @@ extern const struct {
   guint          width;
   guint          height;
   guint          bytes_per_pixel; // 2:RGB16, 3:RGB, 4:RGBA 
-  guint8         pixel_data[375 * 923 * 4 + 32];
+  guint8         pixel_data[416 * 948 * 4 + 1];
 } ttgo_board_skin;
 
 

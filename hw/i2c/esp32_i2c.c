@@ -193,7 +193,7 @@ static void esp32_i2c_do_transaction(Esp32I2CState * s)
                     s->int_raw_reg = FIELD_DP32(s->int_raw_reg, I2C_INT_RAW, ACK_ERR, 0);
                     length -= 1;
                 }
-                for (uint nbytes = 0; nbytes < length; ++nbytes) {
+                for (guint nbytes = 0; nbytes < length; ++nbytes) {
                     uint8_t data = fifo8_pop(&s->tx_fifo);
                     i2c_send(s->bus, data);
                 }

@@ -59,6 +59,7 @@ ENV PACKAGES \
     mingw32-nsis \
     mingw32-pixman \
     mingw32-pkg-config \
+    mingw32-libgcrypt \
     mingw32-SDL2 \
     mingw64-bzip2 \
     mingw64-curl \
@@ -66,6 +67,7 @@ ENV PACKAGES \
     mingw64-gmp \
     mingw64-gnutls \
     mingw64-gtk3 \
+    mingw64-libgcrypt \
     mingw64-libjpeg-turbo \
     mingw64-libpng \
     mingw64-libtasn1 \
