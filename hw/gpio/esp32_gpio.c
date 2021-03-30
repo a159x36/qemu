@@ -223,7 +223,8 @@ static const MemoryRegionOps uart_ops = {
 static void esp32_gpio_reset(DeviceState *dev)
 {
 }
-
+extern int touch_sensor[10];
+#define PW 1200
 static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                                InputEvent *evt)
 {
@@ -248,7 +249,11 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
             if(qcode==Q_KEY_CODE_R) {
                 qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
             }
-
+            int touch_codes[]={Q_KEY_CODE_7,Q_KEY_CODE_8,Q_KEY_CODE_9,Q_KEY_CODE_0};
+            int tsens[]={2,3,8,9};
+            for(int i=0;i<4;i++)
+	            if(qcode==touch_codes[i])
+			touch_sensor[tsens[i]]=1000*(1-up);
         break;
         
         case INPUT_EVENT_KIND_ABS:
@@ -261,7 +266,7 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
         case INPUT_EVENT_KIND_BTN:
             btn = evt->u.btn.data;
             
-           // printf("btn %d %d %d %d\n",xpos, ypos,  btn->button, btn->down);
+//            printf("btn %d %d %d %d\n",xpos, ypos,  btn->button, btn->down);
             QemuConsole *con = qemu_console_lookup_by_index(0);
             DisplaySurface *surface=qemu_console_surface(con);
             int portrait=surface_height(surface)>surface_width(surface);
@@ -271,6 +276,8 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                     set_gpio(s,0,up);
                 if(!(s->gpio_in1&8))
                     set_gpio(s,35,up);
+		for(int i=2;i<10;i++)
+		    touch_sensor[i]=0;
                 break;
             }
             if(portrait) {
@@ -282,6 +289,15 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                 }
                 if(xpos>30876 && xpos<32530 && ypos>23503 && ypos<24713 && up==0)
                     qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+		int xs[]={0,0,1417,1417,1417,1417,0,30010,30010,30010};
+		int ys[]={0,0,12132,13791,15312,16694,0,18388,13860,12201};
+		for(int i=2;i<10;i++) {
+			if(i!=6) {
+				if(xpos>(xs[i]-PW) && xpos<(xs[i]+PW) &&
+				ypos>(ys[i]-PW) && ypos<(ys[i]+PW))
+					touch_sensor[i]=1000;
+			}
+		}
             } else {
                 if(xpos>28308 && xpos<30451 && ypos>5199 && ypos<8428) {
                     set_gpio(s,35,up);
@@ -291,6 +307,15 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                 }
                 if(xpos>23607 && xpos<24540 && ypos>551 && ypos<1732 && up==0)
                     qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+		int xs[]={0,0,12166,13618,15277,16798,0,18388,13791,12166};
+                int ys[]={0,0,31743,31743,31743,31743,0,2993,2993,2993};
+                for(int i=2;i<10;i++) {
+                        if(i!=6) { 
+                                if(xpos>(xs[i]-PW) && xpos<(xs[i]+PW) &&
+                                ypos>(ys[i]-PW) && ypos<(ys[i]+PW))
+                                        touch_sensor[i]=1000;
+                        }
+                }
 
             }
             break;
