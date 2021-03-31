@@ -48,7 +48,7 @@ int main(int argc, char*argv[]) {
     while(l>0 && package_path[l]!='/' && package_path[l]!='\\') l--;
     package_path[l]=0;
 
-    snprintf(cmd,256,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw"
+    snprintf(cmd,256,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
             ,package_path);
 
     FILE* fout=fopen("esp32flash.bin","wb");
