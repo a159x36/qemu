@@ -194,6 +194,8 @@ static void esp32_gpio_write(void *opaque, hwaddr addr,
       int n=(addr-0x88)/4;
       s->gpio_pin[n]=value;
     }
+#define MAG 1
+#define RED 2
     if((s->gpio_out & (1<<4)) != (oldvalue & 1<<4)) {
         int bl=(s->gpio_out>>4)&1;
         QemuConsole *con = qemu_console_lookup_by_index(0);
@@ -202,13 +204,13 @@ static void esp32_gpio_write(void *opaque, hwaddr addr,
         volatile unsigned *dest = (unsigned *)surface_data(surface);
         uint32_t px=bl?(64<<16)|(64<<8)|(64):0;
         if(portrait) {
-            for(int y=0;y<240*2;y++)
-                for(int x=0;x<135*2;x++)
-                    dest[(y+126)*ttgo_board_skin.width+x+62]=px^(rand()&0x0f0f0f);
+            for(int y=0;y<240*MAG;y++)
+                for(int x=0;x<135*MAG;x++)
+                    dest[(y+126/RED)*ttgo_board_skin.width/RED+x+62/RED]=px^(rand()&0x0f0f0f);
         } else {
-            for(int y=0;y<135*2;y++)
-                for(int x=0;x<240*2;x++)
-                    dest[(y+82)*ttgo_board_skin.height+x+126]=px^(rand()&0x0f0f0f);
+            for(int y=0;y<135*MAG;y++)
+                for(int x=0;x<240*MAG;x++)
+                    dest[(y+82/RED)*ttgo_board_skin.height/RED+x+126/RED]=px^(rand()&0x0f0f0f);
         }
         dpy_gfx_update(con, 0, 0, surface_width(surface), surface_height(surface));
     }

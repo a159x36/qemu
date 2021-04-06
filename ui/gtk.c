@@ -1989,8 +1989,8 @@ static GSList *gd_vc_gfx_init(GtkDisplayState *s, VirtualConsole *vc,
 
     vc->label = qemu_console_get_label(con);
     vc->s = s;
-    vc->gfx.scale_x = 0.5;//1.0;
-    vc->gfx.scale_y = 0.5;//1.0;
+    vc->gfx.scale_x = 1.0;
+    vc->gfx.scale_y = 1.0;
 
 #if defined(CONFIG_OPENGL)
     if (display_opengl) {
