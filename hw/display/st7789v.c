@@ -58,6 +58,7 @@ extern const struct {
   guint8         pixel_data[416 * 948 * 4 + 1];
 } ttgo_board_skin;
 
+static int width,height,x_offset,y_offset;;
 
 void draw_skin(Esp32Spi2State *s);
 
@@ -78,7 +79,7 @@ void draw_skin(Esp32Spi2State *s) {
 		red=red/(REDUCE*REDUCE);green=green/(REDUCE*REDUCE);
 		blue=blue/(REDUCE*REDUCE);trans=trans/(REDUCE*REDUCE);
             if(trans<200) {red=green=blue=0;trans=255;}
-            if(s->width<s->height) // portrait
+            if(width<height) // portrait
                 dest[i*ttgo_board_skin.width/REDUCE+j]=(trans<<24) | (red<<16) | (green<<8) | blue; 
             else
                 dest[(ttgo_board_skin.width/REDUCE-j-1)*ttgo_board_skin.height/REDUCE+i]=(trans<<24) | (red<<16) | (green<<8) | blue; 
@@ -233,16 +234,16 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                     if(s->current_command==0x36) {
                         if(cmd==0 || cmd==8) { // portrait
                             qemu_console_resize(s->con, ttgo_board_skin.width/REDUCE, ttgo_board_skin.height/REDUCE);
-                            s->width=135;
-                            s->height=240;
-                            s->x_offset=52;
-                            s->y_offset=40;
+                            width=135;
+                            height=240;
+                            x_offset=52;
+                            y_offset=40;
                         } else {
                             qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE,  ttgo_board_skin.width/REDUCE);
-                            s->width=240;
-                            s->height=135;
-                            s->x_offset=40;
-                            s->y_offset=53;
+                            width=240;
+                            height=135;
+                            x_offset=40;
+                            y_offset=53;
                         }
                         draw_skin(s);
                     }
@@ -273,16 +274,16 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                     }
                 
                     if (s->current_command==0x2c) {
-                    //    printf("draw(%d,%d,%d,%d)\n",s->x_start-s->x_offset,
-                    //    s->y_start-s->y_offset,s->x_end-s->x_start+1,s->y_end-s->y_offset);
+                        //printf("draw(%d,%d,%d,%d)\n",s->x_start-s->x_offset,
+                        //s->y_start-y_offset,s->x_end-s->x_start+1,s->y_end-y_offset);
 			if ((value & 0x20000000))
-                        for(int y=s->y_start-s->y_offset;y<=s->y_end-s->y_offset;y++) {
-                            if(y>=0 && y<s->height) {
+                        for(int y=s->y_start-y_offset;y<=s->y_end-y_offset;y++) {
+                            if(y>=0 && y<height) {
                                 address_space_read(&address_space_memory, data,
-                                        MEMTXATTRS_UNSPECIFIED, frame_buffer+y*s->width+s->x_start-s->x_offset,
+                                        MEMTXATTRS_UNSPECIFIED, frame_buffer+y*width+s->x_start-x_offset,
                                         (s->x_end-s->x_start+1)*2);
 				if(!s->little_endian)
-					for(int i=y*s->width+s->x_start-s->x_offset; i<(s->x_end-s->x_start+1); i++) {
+					for(int i=y*width+s->x_start-x_offset; i<(s->x_end-s->x_start+1); i++) {
 						frame_buffer[i]=(frame_buffer[i]<<8)|(frame_buffer[i]>>8);
 					} 
                             }
@@ -291,7 +292,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
 			else {
 				for(int i=0;i<(s->mosi_dlen_reg+1)/16;i++) {
 					uint16_t *udr=(uint16_t *)(s->data_reg);
-					uint16_t offset=(s->y-s->y_offset)*s->width+s->x-s->x_offset;
+					uint16_t offset=(s->y-y_offset)*width+s->x-x_offset;
 					if(!s->little_endian) {udr[i]=(udr[i]<<8)|(udr[i]>>8);}
 					if(offset<(135*240))
 						frame_buffer[offset]=udr[i];
@@ -305,7 +306,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
                         redraw = 1;
                     }
                 }
-		if(value & 0x20000000 || (s->y > s->y_end)) {
+		if((value & 0x20000000) || (s->y > s->y_end)) {
 		  s->y=s->y_start;
 		  s->x=s->x_start;
                   uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -510,14 +511,14 @@ static void st7789_update_display(void *opaque) {
     //  printf("update disp\n");
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
-    // int bpp = surface_bits_per_pixel(surface);
-    //  printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
+     //int bpp = surface_bits_per_pixel(surface);
+      //printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
 
-    for (int i = 0; i < s->width; i++)
-        for (int j = 0; j < s->height; j++)
+    for (int i = 0; i < width; i++)
+        for (int j = 0; j < height; j++)
             for (int ii = 0; ii < MAGNIFY; ii++)
                 for (int jj = 0; jj < MAGNIFY; jj++) {
-                    unsigned fbv = frame_buffer[j * s->width + i];
+                    unsigned fbv = frame_buffer[j * width + i];
                     int red = (fbv & 0xf800) >> 8;
                     int green = (fbv & 0x7e0) >> 3;
                     int blue = (fbv & 0x1f) << 3;
@@ -526,7 +527,7 @@ static void st7789_update_display(void *opaque) {
                         green=green>>3;
                         blue=blue>>3;
                     }
-                    if(s->width>s->height) { // landscape
+                    if(width>height) { // landscape
                         int x=i*MAGNIFY+ii+126/REDUCE;
                         int y=j*MAGNIFY+jj+82/REDUCE;
                         *(dest + y*ttgo_board_skin.height/REDUCE+x) = (red << 16) | (green << 8) | blue;
@@ -537,10 +538,12 @@ static void st7789_update_display(void *opaque) {
                     }
                 }
     redraw = 0;
-    if(s->width>s->height)
-        dpy_gfx_update(s->con, 126/REDUCE, 82/REDUCE, s->width * MAGNIFY, s->height * MAGNIFY);
+//printf("update %d %d %d %d\n",126/REDUCE, 82/REDUCE, s->width * MAGNIFY, s->height * MAGNIFY);
+
+    if(width>height)
+        dpy_gfx_update(s->con, 126/REDUCE, 82/REDUCE, width * MAGNIFY, height * MAGNIFY);
     else
-        dpy_gfx_update(s->con, 62/REDUCE, 126/REDUCE, s->width * MAGNIFY, s->height * MAGNIFY);
+        dpy_gfx_update(s->con, 62/REDUCE, 126/REDUCE, width * MAGNIFY, height * MAGNIFY);
     pp += 10;
 }
 static void st7789_invalidate_display(void *opaque) {
@@ -553,17 +556,19 @@ static const GraphicHwOps st7789_ops = {
     .gfx_update = st7789_update_display,
 };
 
+
+
 static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(dev);
-    static QemuConsole *console;
-//    printf("realise\n");
+    static QemuConsole *console=0;
+    //printf("realise\n");
     if(console==0) {
       console = graphic_console_init(dev, 0, &st7789_ops, s);
       s->con = console;
-      s->width=240;
-      s->height=135;
-      s->x_offset=40;
-      s->y_offset=53;
+      width=240;
+      height=135;
+      x_offset=40;
+      y_offset=53;
       qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE, ttgo_board_skin.width/REDUCE);
       draw_skin(s);
     } else {

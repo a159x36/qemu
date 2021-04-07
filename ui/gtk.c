@@ -61,10 +61,10 @@
 #include "qom/object.h"
 
 #define MAX_VCS 10
-#define VC_WINDOW_X_MIN  320
-#define VC_WINDOW_Y_MIN  240
+#define VC_WINDOW_X_MIN  16
+#define VC_WINDOW_Y_MIN  12
 #define VC_TERM_X_MIN     80
-#define VC_TERM_Y_MIN     25
+#define VC_TERM_Y_MIN     50
 #define VC_SCALE_MIN    0.25
 #define VC_SCALE_STEP   0.25
 
@@ -333,6 +333,8 @@ static void gd_update_geometry_hints(VirtualConsole *vc)
             mask |= GDK_HINT_MIN_SIZE;
         }
         geo_widget = vc->gfx.drawing_area;
+//printf("%s %d x %d\n",vc->label, geo.min_width,geo.min_height);
+//if(geo.min_width!=640)
         gtk_widget_set_size_request(geo_widget, geo.min_width, geo.min_height);
 
 #if defined(CONFIG_VTE)
@@ -373,8 +375,12 @@ static void gd_update_geometry_hints(VirtualConsole *vc)
         geo_widget = vc->vte.terminal;
 #endif
     }
+//    geo.min_width=100;
+//    geo.min_height=100;
+   //printf("geo %d x %d\n",geo.min_width,geo.min_height);
 
     geo_window = GTK_WINDOW(vc->window ? vc->window : s->window);
+//if(geo.min_width!=640)
     gtk_window_set_geometry_hints(geo_window, geo_widget, &geo, mask);
 }
 
@@ -385,8 +391,9 @@ void gd_update_windowsize(VirtualConsole *vc)
     gd_update_geometry_hints(vc);
 
     if (vc->type == GD_VC_GFX && !s->full_screen && !s->free_scale) {
-        gtk_window_resize(GTK_WINDOW(vc->window ? vc->window : s->window),
-                          VC_WINDOW_X_MIN, VC_WINDOW_Y_MIN);
+	//printf("resize %d x %d\n",surface_width(vc->gfx.ds), surface_height(vc->gfx.ds));
+        gtk_window_resize(GTK_WINDOW(vc->window ? vc->window : s->window), surface_width(vc->gfx.ds), surface_height(vc->gfx.ds));
+//                          VC_WINDOW_X_MIN, VC_WINDOW_Y_MIN);
     }
 }
 
