@@ -51,7 +51,8 @@ int main(int argc, char*argv[]) {
     snprintf(cmd,256,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
             ,package_path);
 
-    FILE* fout=fopen("esp32flash.bin","wb");
+    FILE* fout=fopen("esp32flash.bin","r+");
+    if(fout==0) fout=fopen("esp32flash.bin","w");
     copyfile(bootloader_name, fout, 0x1000);
     copyfile(partitions_name, fout, 0x8000);
     if(ard) copyfile(boot_app_name, fout, 0xe000);
