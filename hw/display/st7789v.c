@@ -33,7 +33,6 @@ enum {
 #define REDUCE 2
 #define ESP32_SPI_REG_SIZE 0x1000
 
-//static void esp32_spi_do_command(Esp32Spi2State *state, uint32_t cmd_reg);
 void update_irq(Esp32Spi2State *s);
 
 unsigned short frame_buffer[240 * 135];
@@ -46,15 +45,13 @@ void update_irq(Esp32Spi2State *s) {
             qemu_irq_raise(s->irq);
         else
             qemu_irq_lower(s->irq);
-
-        // s->slave_reg &= ~0x10;
     }
 }
 
 extern const struct {
   guint          width;
   guint          height;
-  guint          bytes_per_pixel; // 2:RGB16, 3:RGB, 4:RGBA 
+  guint          bytes_per_pixel; 
   guint8         pixel_data[416 * 948 * 4 + 1];
 } ttgo_board_skin;
 
@@ -151,12 +148,10 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size) {
     #if DEBUG
     qemu_log("spi_read %lx, %lx\n", addr, r);
     #endif
-    // update_irq(s);
     return r;
 }
 static void esp32_spi_timer_cb(void *opaque) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(opaque);
-    // timer_del(&ts->alarm_timer);
     s->slave_reg |= 0x10;
     esp32_spi_cs_set(s,1);
     update_irq(s);
@@ -208,110 +203,134 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
             s->pin_reg = value;
             break;
         case A_SPI2_CMD:
-           // esp32_spi_do_command(s, value);
+            // esp32_spi_do_command(s, value);
             if (value & 0x40000) {
-                value=s->outlink_reg;
-		int cmd=0;
-		int data=0 ;
-		char *dr=(char *)(s->data_reg);
+                value = s->outlink_reg;
+                int cmd = 0;
+                int data = 0;
+                char *dr = (char *)(s->data_reg);
 
-                if ((value & 0x20000000)) {
+                if ((value & 0x20000000)) { // a dma command
                     unsigned addr = (0x3ff00000 + (value & 0xfffff));
-                    int v[3];
+                    int v[3]; 
+                    // read the address from the dma command list
+                    // this assumes it's contiguous which should be true
+                    // because the idf only allows dma from contiguous blocks.
                     address_space_read(&address_space_memory, addr,
-                            MEMTXATTRS_UNSPECIFIED, v, 12);
-                   // int size = v[0] & 0xfff;
+                                       MEMTXATTRS_UNSPECIFIED, v, 12);
                     data = v[1];
                     address_space_read(&address_space_memory, data,
-                            MEMTXATTRS_UNSPECIFIED, &cmd, 1);
-		} else cmd= s->data_reg[0] & 0xff;
-                    int gpios;
-                    address_space_read(&address_space_memory, 0x3FF44004,
-                            MEMTXATTRS_UNSPECIFIED, &gpios, 4);
-                    if(!(gpios & (1<<16))) {
-                            s->current_command=cmd;
-                    } else {
-                    if(s->current_command==0x36) {
-                        if(cmd==0 || cmd==8) { // portrait
-                            qemu_console_resize(s->con, ttgo_board_skin.width/REDUCE, ttgo_board_skin.height/REDUCE);
-                            width=135;
-                            height=240;
-                            x_offset=52;
-                            y_offset=40;
-                        } else {
-                            qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE,  ttgo_board_skin.width/REDUCE);
-                            width=240;
-                            height=135;
-                            x_offset=40;
-                            y_offset=53;
+                                       MEMTXATTRS_UNSPECIFIED, &cmd, 1);
+                } else
+                    cmd = s->data_reg[0] & 0xff;
+                // read gpio to detect commands, this is currently fixed for the ttgo board
+                int gpios;
+                address_space_read(&address_space_memory, 0x3FF44004,
+                                   MEMTXATTRS_UNSPECIFIED, &gpios, 4);
+                if (!(gpios & (1 << 16))) {
+                    s->current_command = cmd;
+                } else {
+                    if (s->current_command == 0x36) { // change mode
+                        if (cmd == 0 || cmd == 8) {  // portrait
+                            qemu_console_resize(
+                                s->con, ttgo_board_skin.width / REDUCE,
+                                ttgo_board_skin.height / REDUCE);
+                            width = 135;
+                            height = 240;
+                            x_offset = 52;
+                            y_offset = 40;
+                        } else {  // landscape
+                            qemu_console_resize(s->con,
+                                                ttgo_board_skin.height / REDUCE,
+                                                ttgo_board_skin.width / REDUCE);
+                            width = 240;
+                            height = 135;
+                            x_offset = 40;
+                            y_offset = 53;
                         }
                         draw_skin(s);
                     }
-                    if(s->current_command==0x2a) { //CAS_SET
+                    if (s->current_command == 0x2a) {  // CAS_SET
                         unsigned char xx[4];
-			if ((value & 0x20000000))
-                        address_space_read(&address_space_memory, data,
-                            MEMTXATTRS_UNSPECIFIED, xx, 4);
-			else { for(int i=0;i<4;i++) xx[i]=dr[i];}
-                        s->x_start=xx[1]+xx[0]*256;
-                   //     if(s->x_start-s->x_offset <0)
-                            
-                        s->x_end=xx[3]+xx[2]*256;
-			s->x=s->x_start;
-                    }
-                    if(s->current_command==0x2b) { //RAS_SET
-                        unsigned char xx[4];
-			if ((value & 0x20000000))
-                        address_space_read(&address_space_memory, data,
-                            MEMTXATTRS_UNSPECIFIED, xx, 4);
-			else { for(int i=0;i<4;i++) xx[i]=dr[i];}
-                        s->y_start=xx[1]+xx[0]*256;
-                        s->y_end=xx[3]+xx[2]*256;
-			s->y=s->y_start;
-                    }
-                    if(s->current_command==0xb0) { // RAM_CTRL
-			s->little_endian=1;
-                    }
-                
-                    if (s->current_command==0x2c) {
-                        //printf("draw(%d,%d,%d,%d)\n",s->x_start-s->x_offset,
-                        //s->y_start-y_offset,s->x_end-s->x_start+1,s->y_end-y_offset);
-			if ((value & 0x20000000))
-                        for(int y=s->y_start-y_offset;y<=s->y_end-y_offset;y++) {
-                            if(y>=0 && y<height) {
-                                address_space_read(&address_space_memory, data,
-                                        MEMTXATTRS_UNSPECIFIED, frame_buffer+y*width+s->x_start-x_offset,
-                                        (s->x_end-s->x_start+1)*2);
-				if(!s->little_endian)
-					for(int i=y*width+s->x_start-x_offset; i<(s->x_end-s->x_start+1); i++) {
-						frame_buffer[i]=(frame_buffer[i]<<8)|(frame_buffer[i]>>8);
-					} 
-                            }
-                            data+=(s->x_end-s->x_start+1)*2;
+                        if ((value & 0x20000000))
+                            address_space_read(&address_space_memory, data,
+                                               MEMTXATTRS_UNSPECIFIED, xx, 4);
+                        else {
+                            for (int i = 0; i < 4; i++) xx[i] = dr[i];
                         }
-			else {
-				for(int i=0;i<(s->mosi_dlen_reg+1)/16;i++) {
-					uint16_t *udr=(uint16_t *)(s->data_reg);
-					uint16_t offset=(s->y-y_offset)*width+s->x-x_offset;
-					if(!s->little_endian) {udr[i]=(udr[i]<<8)|(udr[i]>>8);}
-					if(offset<(135*240))
-						frame_buffer[offset]=udr[i];
-					s->x++;
-					if(s->x > s->x_end) {
-						s->x=s->x_start;
-						s->y++;
-					}
-				}
-			}
+                        s->x_start = xx[1] + xx[0] * 256;
+                        //     if(s->x_start-s->x_offset <0)
+
+                        s->x_end = xx[3] + xx[2] * 256;
+                        s->x = s->x_start;
+                    }
+                    if (s->current_command == 0x2b) {  // RAS_SET
+                        unsigned char xx[4];
+                        if ((value & 0x20000000))
+                            address_space_read(&address_space_memory, data,
+                                               MEMTXATTRS_UNSPECIFIED, xx, 4);
+                        else {
+                            for (int i = 0; i < 4; i++) xx[i] = dr[i];
+                        }
+                        s->y_start = xx[1] + xx[0] * 256;
+                        s->y_end = xx[3] + xx[2] * 256;
+                        s->y = s->y_start;
+                    }
+                    if (s->current_command == 0xb0) {  // RAM_CTRL
+                        s->little_endian = 1;
+                    }
+
+                    if (s->current_command == 0x2c) { // RAM_WR
+                        if ((value & 0x20000000))
+                            for (int y = s->y_start - y_offset;
+                                 y <= s->y_end - y_offset; y++) {
+                                if (y >= 0 && y < height) {
+                                    address_space_read(
+                                        &address_space_memory, data,
+                                        MEMTXATTRS_UNSPECIFIED,
+                                        frame_buffer + y * width + s->x_start -
+                                            x_offset,
+                                        (s->x_end - s->x_start + 1) * 2);
+                                    if (!s->little_endian)
+                                        for (int i = y * width + s->x_start -
+                                                     x_offset;
+                                             i < (s->x_end - s->x_start + 1);
+                                             i++) {
+                                            frame_buffer[i] =
+                                                (frame_buffer[i] << 8) |
+                                                (frame_buffer[i] >> 8);
+                                        }
+                                }
+                                data += (s->x_end - s->x_start + 1) * 2;
+                            }
+                        else {
+                            for (int i = 0; i < (s->mosi_dlen_reg + 1) / 16;
+                                 i++) {
+                                uint16_t *udr = (uint16_t *)(s->data_reg);
+                                uint16_t offset =
+                                    (s->y - y_offset) * width + s->x - x_offset;
+                                if (!s->little_endian) {
+                                    udr[i] = (udr[i] << 8) | (udr[i] >> 8);
+                                }
+                                if (offset < (135 * 240))
+                                    frame_buffer[offset] = udr[i];
+                                s->x++;
+                                if (s->x > s->x_end) {
+                                    s->x = s->x_start;
+                                    s->y++;
+                                }
+                            }
+                        }
                         redraw = 1;
                     }
                 }
-		if((value & 0x20000000) || (s->y > s->y_end)) {
-		  s->y=s->y_start;
-		  s->x=s->x_start;
-                  uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                  uint64_t ns_to_timeout = s->mosi_dlen_reg * 35;//25;
-                  timer_mod_anticipate_ns(&s->spi_timer, ns_now + ns_to_timeout);
+                if ((value & 0x20000000) || (s->y > s->y_end)) {
+                    s->y = s->y_start;
+                    s->x = s->x_start;
+                    uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+                    uint64_t ns_to_timeout = s->mosi_dlen_reg * 23;  // about 75fps, same a real hw
+                    timer_mod_anticipate_ns(&s->spi_timer,
+                                            ns_now + ns_to_timeout);
                 }
             }
             break;
@@ -334,158 +353,7 @@ static void esp32_spi_write(void *opaque, hwaddr addr, uint64_t value,
     }
 
 }
-/*
-typedef struct Esp32Spi2Transaction {
-    int cmd_bytes;
-    uint32_t cmd;
-    int addr_bytes;
-    uint32_t addr;
-    int data_tx_bytes;
-    int data_rx_bytes;
-    uint32_t *data;
-} Esp32Spi2Transaction;
 
-static void esp32_spi_txrx_buffer(Esp32SpiState *s, void *buf, int tx_bytes, int
-rx_bytes)
-{
-    int bytes = MAX(tx_bytes, rx_bytes);
-    uint8_t *c_buf = (uint8_t*) buf;
-    for (int i = 0; i < bytes; ++i) {
-        uint8_t byte = 0;
-        if (byte < tx_bytes) {
-            memcpy(&byte, c_buf + i, 1);
-        }
-        uint32_t res = ssi_transfer(s->spi, byte);
-        if (byte < rx_bytes) {
-            memcpy(c_buf + i, &res, 1);
-        }
-    }
-}
-
-static void esp32_spi_cs_set(Esp32SpiState *s, int value)
-{
-    for (int i = 0; i < ESP32_SPI_CS_COUNT; ++i) {
-        qemu_set_irq(s->cs_gpio[i], ((s->pin_reg & (1 << i)) == 0) ? value : 1);
-    }
-}
-
-static void esp32_spi_transaction(Esp32SpiState *s, Esp32SpiTransaction *t)
-{
-    esp32_spi_cs_set(s, 0);
-    esp32_spi_txrx_buffer(s, &t->cmd, t->cmd_bytes, 0);
-    esp32_spi_txrx_buffer(s, &t->addr, t->addr_bytes, 0);
-    esp32_spi_txrx_buffer(s, t->data, t->data_tx_bytes, t->data_rx_bytes);
-    esp32_spi_cs_set(s, 1);
-}
-*/
-
-/* Convert one of the hardware "bitlen" registers to a byte count */
-static inline int bitlen_to_bytes(uint32_t val) {
-    return (val + 1 + 7) /
-           8; /* bitlen registers hold number of bits, minus one */
-}
-/*
-static void esp32_spi_do_command(Esp32Spi2State *s, uint32_t cmd_reg) {
-    
-    Esp32SpiTransaction t = {
-        .cmd_bytes = 1
-    };
-    switch (cmd_reg) {
-    case R_SPI_CMD_READ_MASK:
-        t.cmd = CMD_READ;
-        t.addr_bytes = bitlen_to_bytes(FIELD_EX32(s->user1_reg, SPI_USER1,
-    ADDR_BITLEN)); t.addr = bswap32(s->addr_reg) >> (32 - t.addr_bytes * 8);
-        t.data = &s->data_reg[0];
-        t.data_rx_bytes = bitlen_to_bytes(s->miso_dlen_reg);
-        break;
-
-    case R_SPI_CMD_WREN_MASK:
-        t.cmd = CMD_WREN;
-        break;
-
-    case R_SPI_CMD_WRDI_MASK:
-        t.cmd = CMD_WRDI;
-        break;
-
-    case R_SPI_CMD_RDID_MASK:
-        t.cmd = CMD_RDID;
-        t.data = &s->data_reg[0];
-        t.data_rx_bytes = 3;
-        break;
-
-    case R_SPI_CMD_RDSR_MASK:
-        t.cmd = CMD_RDSR;
-        t.data = &s->status_reg;
-        t.data_rx_bytes = 1;
-        break;
-
-    case R_SPI_CMD_WRSR_MASK:
-        t.cmd = CMD_WRSR;
-        t.data = &s->status_reg;
-        t.data_tx_bytes = 1;
-        break;
-
-    case R_SPI_CMD_PP_MASK:
-        t.cmd = CMD_PP;
-        t.data = &s->data_reg[0];
-        t.addr_bytes = bitlen_to_bytes(FIELD_EX32(s->user1_reg, SPI_USER1,
-    ADDR_BITLEN)); t.addr = bswap32(s->addr_reg) >> 8; t.data = &s->data_reg[0];
-        t.data_tx_bytes = s->addr_reg >> 24;
-        break;
-
-    case R_SPI_CMD_SE_MASK:
-        t.cmd = CMD_SE;
-        t.addr_bytes = bitlen_to_bytes(FIELD_EX32(s->user1_reg, SPI_USER1,
-    ADDR_BITLEN)); t.addr = bswap32(s->addr_reg) >> (32 - t.addr_bytes * 8);
-        break;
-
-    case R_SPI_CMD_BE_MASK:
-        t.cmd = CMD_BE;
-        t.addr_bytes = bitlen_to_bytes(FIELD_EX32(s->user1_reg, SPI_USER1,
-    ADDR_BITLEN)); t.addr = bswap32(s->addr_reg) >> (32 - t.addr_bytes * 8);
-        break;
-
-    case R_SPI_CMD_CE_MASK:
-        t.cmd = CMD_CE;
-        break;
-
-    case R_SPI_CMD_DP_MASK:
-        t.cmd = CMD_DP;
-        break;
-
-    case R_SPI_CMD_RES_MASK:
-        t.cmd = CMD_RES;
-        t.data = &s->data_reg[0];
-        t.data_rx_bytes = 3;
-        break;
-
-    case R_SPI_CMD_USR_MASK:
-        if (FIELD_EX32(s->user_reg, SPI_USER, COMMAND) ||
-    FIELD_EX32(s->user2_reg, SPI_USER2, COMMAND_BITLEN)) { t.cmd =
-    FIELD_EX32(s->user2_reg, SPI_USER2, COMMAND_VALUE); t.cmd_bytes =
-    bitlen_to_bytes(FIELD_EX32(s->user2_reg, SPI_USER2, COMMAND_BITLEN)); } else
-    { t.cmd_bytes = 0;
-        }
-        if (FIELD_EX32(s->user_reg, SPI_USER, ADDR)) {
-            t.addr_bytes = bitlen_to_bytes(FIELD_EX32(s->user1_reg, SPI_USER1,
-    ADDR_BITLEN)); t.addr = bswap32(s->addr_reg);
-        }
-        if (FIELD_EX32(s->user_reg, SPI_USER, MOSI)) {
-            t.data = &s->data_reg[0];
-            t.data_tx_bytes = bitlen_to_bytes(s->mosi_dlen_reg);
-        }
-        if (FIELD_EX32(s->user_reg, SPI_USER, MISO)) {
-            t.data = &s->data_reg[0];
-            t.data_rx_bytes = bitlen_to_bytes(s->miso_dlen_reg);
-        }
-        break;
-    default:
-        return;
-    }
-    esp32_spi_transaction(s, &t);
-    
-}
-*/
 static const MemoryRegionOps esp32_spi_ops = {
     .read = esp32_spi_read,
     .write = esp32_spi_write,
@@ -508,11 +376,9 @@ static void st7789_update_display(void *opaque) {
     int gpios;
     address_space_read(&address_space_memory, 0x3FF44004,
             MEMTXATTRS_UNSPECIFIED, &gpios, 4);
-    //  printf("update disp\n");
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
-     //int bpp = surface_bits_per_pixel(surface);
-      //printf("bpp = %d %d %d\n",bpp,frame_buffer[0],pp);
+
 
     for (int i = 0; i < width; i++)
         for (int j = 0; j < height; j++)
@@ -538,7 +404,6 @@ static void st7789_update_display(void *opaque) {
                     }
                 }
     redraw = 0;
-//printf("update %d %d %d %d\n",126/REDUCE, 82/REDUCE, s->width * MAGNIFY, s->height * MAGNIFY);
 
     if(width>height)
         dpy_gfx_update(s->con, 126/REDUCE, 82/REDUCE, width * MAGNIFY, height * MAGNIFY);
@@ -547,7 +412,6 @@ static void st7789_update_display(void *opaque) {
     pp += 10;
 }
 static void st7789_invalidate_display(void *opaque) {
-//    Esp32Spi2State *s = (Esp32Spi2State *)opaque;
     redraw = 1;
 }
 
@@ -561,7 +425,6 @@ static const GraphicHwOps st7789_ops = {
 static void esp32_spi_realize(DeviceState *dev, Error **errp) {
     Esp32Spi2State *s = ESP32_SPI_ST7789V(dev);
     static QemuConsole *console=0;
-    //printf("realise\n");
     if(console==0) {
       console = graphic_console_init(dev, 0, &st7789_ops, s);
       s->con = console;
@@ -586,16 +449,10 @@ static void esp32_spi_init(Object *obj) {
     sysbus_init_irq(sbd, &s->irq);
     timer_init_ns(&s->spi_timer, QEMU_CLOCK_VIRTUAL, esp32_spi_timer_cb, s);
 
-    //    sysbus_init_irq(sbd, &s->irq_dma);
-
-    //    qemu_irq dma_irq=qdev_get_gpio_in(DEVICE(&s->dport.intmatrix),
-    //    ETS_SPI2_DMA_INTR_SOURCE); sysbus_init_irq(sbd, &s->dma_irq);
-
     s->spi = ssi_create_bus(DEVICE(s), "spi");
         qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS,
         ESP32_SPI2_CS_COUNT);
     qdev_init_gpio_out_named(DEVICE(s), &s->irq, SYSBUS_DEVICE_GPIO_IRQ, 1);
-    // printf("spi irq=%x\n",(s->irq).n);
 }
 
 static Property esp32_spi_properties[] = {
