@@ -292,7 +292,7 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                 if(xpos>30876 && xpos<32530 && ypos>23503 && ypos<24713 && up==0)
                     qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
 		int xs[]={0,0,1417,1417,1417,1417,0,30010,30010,30010};
-		int ys[]={0,0,12132,13791,15312,16694,0,18388,13860,12201};
+		int ys[]={0,0,12132,13791,15312,16694,0,18388,12201,13860};
 		for(int i=2;i<10;i++) {
 			if(i!=6) {
 				if(xpos>(xs[i]-PW) && xpos<(xs[i]+PW) &&
@@ -309,7 +309,7 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                 }
                 if(xpos>23607 && xpos<24540 && ypos>551 && ypos<1732 && up==0)
                     qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
-		int xs[]={0,0,12166,13618,15277,16798,0,18388,13791,12166};
+		int xs[]={0,0,12166,13618,15277,16798,0,18388,12166,13791};
                 int ys[]={0,0,31743,31743,31743,31743,0,2993,2993,2993};
                 for(int i=2;i<10;i++) {
                         if(i!=6) { 
