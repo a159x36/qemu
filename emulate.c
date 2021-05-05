@@ -20,7 +20,7 @@ void copyfile(char *name, FILE *fout, int loc) {
 int main(int argc, char*argv[]) {
     int ard=0;
     if(argc<3) {
-        printf("emulate firmware build_dir\n");
+        printf("emulate firmware build_dir [packages_dir arduino]\n");
         exit(1);
     }
     if(argc==5 && !strcmp(argv[4],"arduino")) {
@@ -33,7 +33,7 @@ int main(int argc, char*argv[]) {
     char bootloader_name[256];
     char partitions_name[256];
     char boot_app_name[256];
-    char cmd[256];
+    char cmd[512];
     if(!ard)
       snprintf(bootloader_name,256,"%s/bootloader.bin",build_dir);
     else {
@@ -42,14 +42,18 @@ int main(int argc, char*argv[]) {
     }
     snprintf(partitions_name,256,"%s/partitions.bin",build_dir);
 //    printf("%s\n",argv[0]);
-    char package_path[128];
-    strcpy(package_path,argv[0]);
+    char package_path[256];
+    strncpy(package_path,argv[0],256);
     int l=strlen(package_path);
     while(l>0 && package_path[l]!='/' && package_path[l]!='\\') l--;
     package_path[l]=0;
-
-    snprintf(cmd,256,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
+#if __APPLE__
+    snprintf(cmd,512,"DYLD_LIBRARY_PATH=%s/xtensa-softmmu %s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
+            ,package_path,package_path);
+#else
+    snprintf(cmd,512,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
             ,package_path);
+#endif
 
     FILE* fout=fopen("esp32flash.bin","r+");
     if(fout==0) fout=fopen("esp32flash.bin","w");
