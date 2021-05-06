@@ -611,7 +611,8 @@ static void gd_switch(DisplayChangeListener *dcl,
     }
 
     if (resized) {
-        gd_update_windowsize(vc);
+        if(vc->s->vc==vc) // only resize the first console
+            gd_update_windowsize(vc);
     } else {
         gd_update_full_redraw(vc);
     }
