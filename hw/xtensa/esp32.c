@@ -23,7 +23,7 @@
 #include "hw/irq.h"
 #include "hw/i2c/i2c.h"
 #include "hw/qdev-properties.h"
-#include "hw/ssi/esp32_spi_st7789v.h"
+//#include "hw/ssi/esp32_spi_st7789v.h"
 #include "hw/xtensa/esp32.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/reset.h"
@@ -175,7 +175,7 @@ static void esp32_soc_reset(DeviceState *dev)
         s->timg[0].flash_boot_mode = flash_boot_mode;
         for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
             device_cold_reset(DEVICE(&s->spi[i]));
-            device_cold_reset(DEVICE(&s->spi2[i]));
+//            device_cold_reset(DEVICE(&s->spi2[i]));
         }
         for (int i = 0; i < ESP32_I2C_COUNT; i++) {
             device_cold_reset(DEVICE(&s->i2c[i]));
@@ -433,13 +433,14 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
 
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi[i]), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + i));
+                           /*
         qdev_realize(DEVICE(&s->spi2[i]), &s->periph_bus, &error_fatal);
 
         esp32_soc_add_periph_device(sys_mem, &s->spi2[i], spi_base[i+2]);
 
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2[i]), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + 2+ i));
-
+*/
     }
 
 
@@ -560,8 +561,8 @@ static void esp32_soc_init(Object *obj)
         snprintf(name, sizeof(name), "spi%d", i);
         object_initialize_child(obj, name, &s->spi[i], TYPE_ESP32_SPI);
     }
-    object_initialize_child(obj, "spi2", &s->spi2[0], TYPE_ESP32_ST7789V);
-    object_initialize_child(obj, "spi3", &s->spi2[1], TYPE_ESP32_ST7789V);
+    //object_initialize_child(obj, "spi2", &s->spi2[0], TYPE_ESP32_ST7789V);
+    //object_initialize_child(obj, "spi3", &s->spi2[1], TYPE_ESP32_ST7789V);
 
     for (int i = 0; i < ESP32_I2C_COUNT; ++i) {
         snprintf(name, sizeof(name), "i2c%d", i);
@@ -586,6 +587,15 @@ static void esp32_soc_init(Object *obj)
     qdev_init_gpio_in_named(DEVICE(s), esp32_clk_update, ESP32_RTC_CLK_UPDATE_GPIO, 1);
     qdev_init_gpio_in_named(DEVICE(s), esp32_timg_cpu_reset, ESP32_TIMG_WDT_CPU_RESET_GPIO, 2);
     qdev_init_gpio_in_named(DEVICE(s), esp32_timg_sys_reset, ESP32_TIMG_WDT_SYS_RESET_GPIO, 2);
+
+    /* st7789v is attached to SPI2 */
+    DeviceState *spi_master = DEVICE(&s->spi[2]);
+    void * spi_bus = qdev_get_child_bus(spi_master, "spi");
+    DeviceState *disp=ssi_create_slave(spi_bus, "st7789v");
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16,
+                                qdev_get_gpio_in_named(disp, "cmd", 0));
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,
+                                qdev_get_gpio_in_named(disp, "backlight", 0));    
 }
 
 static Property esp32_soc_properties[] = {
@@ -647,6 +657,7 @@ static void esp32_machine_init_spi_flash(Esp32SocState *ss, BlockBackend* blk)
     qdev_connect_gpio_out_named(spi_master, SSI_GPIO_CS, 0,
                                 qdev_get_gpio_in_named(flash_dev, SSI_GPIO_CS, 0));
 }
+
 
 static void esp32_machine_init_i2c(Esp32SocState *s)
 {
@@ -765,6 +776,7 @@ static void esp32_machine_class_init(ObjectClass *oc, void *data)
     mc->desc = "Espressif ESP32 machine";
     mc->init = esp32_machine_init;
     mc->max_cpus = 2;
+    mc->is_default = true;
     mc->default_cpus = 2;
 }
 

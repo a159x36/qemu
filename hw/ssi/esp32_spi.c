@@ -20,6 +20,8 @@
 #include "hw/ssi/ssi.h"
 #include "hw/ssi/esp32_spi.h"
 #include "hw/misc/esp32_flash_enc.h"
+#include "exec/address-spaces.h"
+
 
 
 
@@ -38,8 +40,24 @@ enum {
     CMD_READ = 0x03,
 };
 
-
+static void update_irq(Esp32SpiState *s) {
+    if (s->slave_reg & 0x200) {
+        if (s->slave_reg & 0x10)
+            qemu_irq_raise(s->irq);
+        else
+            qemu_irq_lower(s->irq);
+    }
+}
 #define ESP32_SPI_REG_SIZE    0x1000
+
+static void esp32_spi_cs_set(Esp32SpiState *s, int value);
+
+static void esp32_spi_timer_cb(void *opaque) {
+    Esp32SpiState *s = ESP32_SPI(opaque);
+    s->slave_reg |= 0x10;
+    esp32_spi_cs_set(s,1);
+    update_irq(s);
+}
 
 static void esp32_spi_do_command(Esp32SpiState* state, uint32_t cmd_reg);
 
@@ -87,6 +105,16 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size)
     case A_SPI_EXT2:
         r = 0;
         break;
+    case A_SPI_SLAVE:
+        r = s->slave_reg;  // transaction done
+        break;
+    case A_SPI_DMA_OUT_LINK:
+        r = s->outlink_reg;
+        break;
+    case A_SPI_DMA_CONF:
+        r = s->dmaconfig_reg;
+        break;
+
     }
 //    qemu_log("spi_read %lx, %lx\n",addr, r);
     return r;
@@ -139,6 +167,18 @@ static void esp32_spi_write(void *opaque, hwaddr addr,
     case A_SPI_CMD:
 //        qemu_log("spi_cmd %lx, %lx\n",addr, value);
         esp32_spi_do_command(s, value);
+        break;
+    case A_SPI_SLAVE:
+        s->slave_reg = value;  // transaction done
+        update_irq(s);
+        break;
+
+    case A_SPI_DMA_OUT_LINK:
+        s->outlink_reg = value;
+        break;
+
+    case A_SPI_DMA_CONF:
+        s->dmaconfig_reg = value;
         break;
     }
 }
@@ -277,6 +317,42 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
         break;
 
     case R_SPI_CMD_USR_MASK:
+        if (s->outlink_reg & 0x20000000) {
+            // a DMA transfer
+            int data = 0;
+            int len;
+            uint8_t buffer[4096];
+            unsigned addr = (0x3ff00000 + (s->outlink_reg & 0xfffff));
+            int v[3];
+            
+            // this assumes it's contiguous which should be true
+            // because the idf only allows dma from contiguous blocks.
+            int total_len=0;
+            uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+            esp32_spi_cs_set(s, 0);
+            do {
+                // read the next dma command from the list
+                address_space_read(&address_space_memory, addr,
+                                   MEMTXATTRS_UNSPECIFIED, v, 12);
+                len = v[0] & 4095;
+                data = v[1];
+                addr = v[2];
+                // copy the data into a buffer (max 4092 bytes)
+                address_space_read(&address_space_memory, data,
+                                   MEMTXATTRS_UNSPECIFIED, buffer, len);
+                
+                for (int i = 0; i < len; i++) {    
+                    ssi_transfer(s->spi, buffer[i]);
+                }
+                total_len+=len;
+            } while (addr != 0);
+            esp32_spi_cs_set(s, 1);
+            
+            uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;  // about 75fps, same a real hw
+            timer_mod_ns(&s->spi_timer,
+                                            ns_now + ns_to_timeout);
+            return;
+        }
         maybe_encrypt_data(s);
         if (FIELD_EX32(s->user_reg, SPI_USER, COMMAND) || FIELD_EX32(s->user2_reg, SPI_USER2, COMMAND_BITLEN)) {
             t.cmd = FIELD_EX32(s->user2_reg, SPI_USER2, COMMAND_VALUE);
@@ -297,6 +373,8 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
             t.data_rx_bytes = bitlen_to_bytes(s->miso_dlen_reg);
         }
         break;
+
+
     default:
         return;
     }
@@ -332,6 +410,7 @@ static void esp32_spi_init(Object *obj)
                           TYPE_ESP32_SPI, ESP32_SPI_REG_SIZE);
     sysbus_init_mmio(sbd, &s->iomem);
     sysbus_init_irq(sbd, &s->irq);
+    timer_init_ns(&s->spi_timer, QEMU_CLOCK_VIRTUAL, esp32_spi_timer_cb, s);
 
     s->spi = ssi_create_bus(DEVICE(s), "spi");
     qdev_init_gpio_out_named(DEVICE(s), &s->cs_gpio[0], SSI_GPIO_CS, ESP32_SPI_CS_COUNT);

@@ -214,6 +214,14 @@ static void esp32_gpio_write(void *opaque, hwaddr addr,
         }
         dpy_gfx_update(con, 0, 0, surface_width(surface), surface_height(surface));
     }
+    if(s->gpio_out != oldvalue) {
+        uint32_t diff= (s->gpio_out ^ oldvalue);
+        for(int i=0;i<32;i++) {
+            if((1<<i)&diff) {
+                qemu_set_irq(s->gpios[i],(s->gpio_out & (1<<i))?1:0);
+            }
+        }
+    }
 }
 
 static const MemoryRegionOps uart_ops = {
@@ -348,9 +356,10 @@ static void esp32_gpio_init(Object *obj)
     sysbus_init_mmio(sbd, &s->iomem);
     sysbus_init_irq(sbd, &s->irq);
     qdev_init_gpio_out_named(DEVICE(s), &s->irq, SYSBUS_DEVICE_GPIO_IRQ, 1);
+    qdev_init_gpio_out_named(DEVICE(s), s->gpios, ESP32_GPIOS, 32);
+    qdev_init_gpio_in_named(DEVICE(s), set_gpio, ESP32_GPIOS_IN, 40);
     s->gpio_in=0x1;
     s->gpio_in1=0x8;
-
 }
 
 static Property esp32_gpio_properties[] = {

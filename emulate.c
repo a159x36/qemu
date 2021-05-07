@@ -55,8 +55,8 @@ int main(int argc, char*argv[]) {
             ,package_path);
 #endif
 
-    FILE* fout=fopen("esp32flash.bin","r+");
-    if(fout==0) fout=fopen("esp32flash.bin","w");
+    FILE* fout=fopen("esp32flash.bin","r+b");
+    if(fout==0) fout=fopen("esp32flash.bin","wb");
     copyfile(bootloader_name, fout, 0x1000);
     copyfile(partitions_name, fout, 0x8000);
     if(ard) copyfile(boot_app_name, fout, 0xe000);
