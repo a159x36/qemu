@@ -51,19 +51,26 @@ struct  St7789vState {
 #define TYPE_ST7789V "st7789v"
 OBJECT_DECLARE_SIMPLE_TYPE(St7789vState, ST7789V)
 
+#define PANEL_WIDTH 240
+#define PANEL_HEIGHT 135
+#define PORTRAIT_X_OFFSET 52
+#define PORTRAIT_Y_OFFSET 40
+#define LANDSCAPE_X_OFFSET 40
+#define LANDSCAPE_Y_OFFSET 53
+
 #define MAGNIFY 1
 #define REDUCE 2
 #define st7789v_REG_SIZE 0x1000
 
 void update_irq(St7789vState *s);
 
-unsigned short frame_buffer[240 * 135];
+unsigned short frame_buffer[PANEL_WIDTH*PANEL_HEIGHT];
 
 extern const struct {
   guint          width;
   guint          height;
   guint          bytes_per_pixel; 
-  guint8         pixel_data[416 * 948 * 4 + 1];
+  guint8         pixel_data[];//416 * 948 * 4 + 1];
 } ttgo_board_skin;
 
 
@@ -108,17 +115,17 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
                 if (data == 0 || data == 8) {  // portrait
                     qemu_console_resize(s->con, ttgo_board_skin.width / REDUCE,
                                         ttgo_board_skin.height / REDUCE);
-                    s->width = 135;
-                    s->height = 240;
-                    s->x_offset = 52;
-                    s->y_offset = 40;
+                    s->width = PANEL_HEIGHT;
+                    s->height = PANEL_WIDTH;
+                    s->x_offset = PORTRAIT_X_OFFSET;
+                    s->y_offset = PORTRAIT_Y_OFFSET;
                 } else {  // landscape
                     qemu_console_resize(s->con, ttgo_board_skin.height / REDUCE,
                                         ttgo_board_skin.width / REDUCE);
-                    s->width = 240;
-                    s->height = 135;
-                    s->x_offset = 40;
-                    s->y_offset = 53;
+                    s->width = PANEL_WIDTH;
+                    s->height = PANEL_HEIGHT;
+                    s->x_offset = LANDSCAPE_X_OFFSET;
+                    s->y_offset = LANDSCAPE_Y_OFFSET;
                 }
                 draw_skin(s);
                 break;
@@ -139,7 +146,7 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
                 for(int i=0;i<2;i++) {
                     uint16_t offset = (s->y - s->y_offset) * s->width + 
                         s->x - s->x_offset;
-                    if (offset < (135 * 240)) frame_buffer[offset] = data;
+                    if (offset < (PANEL_WIDTH*PANEL_HEIGHT)) frame_buffer[offset] = data;
                     s->x++;
                     if (s->x > s->x_end) {
                         s->x = s->x_start;
@@ -176,12 +183,12 @@ static void st7789v_backlight(void *opaque, int n, int level)
         volatile unsigned *dest = (unsigned *)surface_data(surface);
         uint32_t px=level?(64<<16)|(64<<8)|(64):0;
         if(portrait) {
-            for(int y=0;y<240*MAGNIFY;y++)
-                for(int x=0;x<135*MAGNIFY;x++)
+            for(int y=0;y<PANEL_WIDTH*MAGNIFY;y++)
+                for(int x=0;x<PANEL_HEIGHT*MAGNIFY;x++)
                     dest[(y+126/REDUCE)*ttgo_board_skin.width/REDUCE+x+62/REDUCE]=px^(rand()&0x0f0f0f);
         } else {
-            for(int y=0;y<135*MAGNIFY;y++)
-                for(int x=0;x<240*MAGNIFY;x++)
+            for(int y=0;y<PANEL_HEIGHT*MAGNIFY;y++)
+                for(int x=0;x<PANEL_WIDTH*MAGNIFY;x++)
                     dest[(y+82/REDUCE)*ttgo_board_skin.height/REDUCE+x+126/REDUCE]=px^(rand()&0x0f0f0f);
         }
         dpy_gfx_update(s->con, 0, 0, surface_width(surface), surface_height(surface));
@@ -275,27 +282,18 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
 
         case INPUT_EVENT_KIND_ABS:
             move = evt->u.abs.data;
-
-            //  printf("move %ld %d\n", move->value, move->axis);
             if (move->axis == 0) xpos = move->value;
             if (move->axis == 1) ypos = move->value;
             break;
         case INPUT_EVENT_KIND_BTN:
             btn = evt->u.btn.data;
-
-            //            printf("btn %d %d %d %d\n",xpos, ypos,  btn->button,
-            //            btn->down);
             QemuConsole *con = qemu_console_lookup_by_index(0);
             DisplaySurface *surface = qemu_console_surface(con);
             int portrait = surface_height(surface) > surface_width(surface);
             up = (1 - btn->down);
             if (up) {
-                //                if(!(s->gpio_in&1))
                 qemu_set_irq(s->button[0], up);
                 qemu_set_irq(s->button[1], up);
-                //                    set_gpio(s,0,up);
-                //                if(!(s->gpio_in1&8))
-                //                    set_gpio(s,35,up);
                 for (int i = 2; i < 10; i++) touch_sensor[i] = 0;
                 break;
             }
@@ -303,12 +301,10 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                 if (xpos > 24996 && xpos < 27962 && ypos > 28481 &&
                     ypos < 30347) {
                     qemu_set_irq(s->button[1], up);
-                    //                    set_gpio(s,35,up);
                 }
                 if (xpos > 3071 && xpos < 6616 && ypos > 28481 &&
                     ypos < 30347) {
                     qemu_set_irq(s->button[0], up);
-                    //                    set_gpio(s,0,up);
                 }
                 if (xpos > 30876 && xpos < 32530 && ypos > 23503 &&
                     ypos < 24713 && up == 0)
@@ -328,12 +324,10 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                 if (xpos > 28308 && xpos < 30451 && ypos > 5199 &&
                     ypos < 8428) {
                     qemu_set_irq(s->button[1], up);
-                    //                    set_gpio(s,35,up);
                 }
                 if (xpos > 28308 && xpos < 30451 && ypos > 26386 &&
                     ypos < 29852) {
                     qemu_set_irq(s->button[0], up);
-                    //                    set_gpio(s,0,up);
                 }
                 if (xpos > 23607 && xpos < 24540 && ypos > 551 && ypos < 1732 &&
                     up == 0)
@@ -376,10 +370,10 @@ static void st7789v_realize(SSISlave *d, Error **errp) {
   //  if(console==0) {
       console = graphic_console_init(dev, 0, &st7789_ops, s);
       s->con = console;
-      s->width=240;
-      s->height=135;
-      s->x_offset=40;
-      s->y_offset=53;
+      s->width=PANEL_WIDTH;
+      s->height=PANEL_HEIGHT;
+      s->x_offset=LANDSCAPE_X_OFFSET;
+      s->y_offset=LANDSCAPE_Y_OFFSET;
       qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE, ttgo_board_skin.width/REDUCE);
       draw_skin(s);
    // } else {
