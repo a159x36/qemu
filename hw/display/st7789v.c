@@ -46,6 +46,7 @@ struct  St7789vState {
     int32_t y;
     int backlight;
     qemu_irq button[2];
+    struct St7789vState *singleton;
 };
 
 #define TYPE_ST7789V "st7789v"
@@ -72,8 +73,6 @@ extern const struct {
   guint          bytes_per_pixel; 
   guint8         pixel_data[];//416 * 948 * 4 + 1];
 } ttgo_board_skin;
-
-
 
 static void draw_skin(St7789vState *s) {
     DisplaySurface *surface = qemu_console_surface(s->con);
@@ -105,6 +104,7 @@ static void draw_skin(St7789vState *s) {
 static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
 {
     St7789vState *s = ST7789V(dev);
+    s=s->singleton;
     if(s->cmd_mode) {
         s->current_command=data;
         s->data_index=0;
@@ -171,12 +171,14 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
 static void st7789v_cd(void *opaque, int n, int level)
 {
     St7789vState *s = (St7789vState *)opaque;
+    s=s->singleton;
     s->cmd_mode = !level;
 }
 
 static void st7789v_backlight(void *opaque, int n, int level)
 {
     St7789vState *s = (St7789vState *)opaque;
+    s=s->singleton;
     if(s->backlight != level) {
         DisplaySurface *surface=qemu_console_surface(s->con);
         int portrait=surface_height(surface)>surface_width(surface);
@@ -198,8 +200,8 @@ static void st7789v_backlight(void *opaque, int n, int level)
 
 static void st7789_update_display(void *opaque) {
     St7789vState *s = (St7789vState *)opaque;
+    s=s->singleton;
     if (!s->redraw) return;
-    
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
 
@@ -238,6 +240,7 @@ static void st7789_update_display(void *opaque) {
 }
 static void st7789_invalidate_display(void *opaque) {
     St7789vState *s = (St7789vState *)opaque;
+    s=s->singleton;
     s-> redraw = 1;
 }
 
@@ -251,6 +254,7 @@ extern int touch_sensor[10];
 static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
                                 InputEvent *evt) {
     St7789vState *s = ST7789V(dev);
+    s=s->singleton;
     int qcode, up;
     InputMoveEvent *move;
     InputBtnEvent *btn;
@@ -366,8 +370,9 @@ static void st7789v_realize(SSISlave *d, Error **errp) {
     qdev_init_gpio_in_named(dev, st7789v_backlight, "backlight", 1);
     qdev_init_gpio_out_named(dev,s->button,"buttons",2);
 
-     QemuConsole *console=0;
-  //  if(console==0) {
+    static QemuConsole *console=0;
+    static St7789vState *si=0;
+    if(console==0) {
       console = graphic_console_init(dev, 0, &st7789_ops, s);
       s->con = console;
       s->width=PANEL_WIDTH;
@@ -376,10 +381,20 @@ static void st7789v_realize(SSISlave *d, Error **errp) {
       s->y_offset=LANDSCAPE_Y_OFFSET;
       qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE, ttgo_board_skin.width/REDUCE);
       draw_skin(s);
-   // } else {
-   //   s->con = console;
-   // }
+      s->singleton=s;
+      si=s;
+    } else {
+      s->con = console;
+      s->width=PANEL_WIDTH;
+      s->height=PANEL_HEIGHT;
+      s->x_offset=LANDSCAPE_X_OFFSET;
+      s->y_offset=LANDSCAPE_Y_OFFSET;
+      s->redraw=1;
+      s->singleton=si;
+    }
 }
+
+
 
 static void st7789v_class_init(ObjectClass *klass, void *data) {
     DeviceClass *dc = DEVICE_CLASS(klass);
