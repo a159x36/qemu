@@ -194,26 +194,13 @@ static void esp32_gpio_write(void *opaque, hwaddr addr,
       int n=(addr-0x88)/4;
       s->gpio_pin[n]=value;
     }
-#define MAG 1
-#define RED 2
-    if((s->gpio_out & (1<<4)) != (oldvalue & 1<<4)) {
-        int bl=(s->gpio_out>>4)&1;
-        QemuConsole *con = qemu_console_lookup_by_index(0);
-        DisplaySurface *surface=qemu_console_surface(con);
-        int portrait=surface_height(surface)>surface_width(surface);
-        volatile unsigned *dest = (unsigned *)surface_data(surface);
-        uint32_t px=bl?(64<<16)|(64<<8)|(64):0;
-        if(portrait) {
-            for(int y=0;y<240*MAG;y++)
-                for(int x=0;x<135*MAG;x++)
-                    dest[(y+126/RED)*ttgo_board_skin.width/RED+x+62/RED]=px^(rand()&0x0f0f0f);
-        } else {
-            for(int y=0;y<135*MAG;y++)
-                for(int x=0;x<240*MAG;x++)
-                    dest[(y+82/RED)*ttgo_board_skin.height/RED+x+126/RED]=px^(rand()&0x0f0f0f);
-        }
-        dpy_gfx_update(con, 0, 0, surface_width(surface), surface_height(surface));
+
+    if(addr>0x530 && addr<0x5d0) {
+    //    printf("IOMUX %lx %lx\n",(addr-0x530)/4,value);
+        if(value==10)
+            printf("Connect GPIO %ld to HSPI_DATA\n",(addr-0x530)/4);
     }
+
     if(s->gpio_out != oldvalue) {
         uint32_t diff= (s->gpio_out ^ oldvalue);
         for(int i=0;i<32;i++) {
@@ -233,117 +220,10 @@ static const MemoryRegionOps uart_ops = {
 static void esp32_gpio_reset(DeviceState *dev)
 {
 }
-extern int touch_sensor[10];
-#define PW 1200
-static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
-                               InputEvent *evt)
-{
-    Esp32GpioState *s = ESP32_GPIO(dev);
-    int qcode, up;
-    InputMoveEvent *move;
-    InputBtnEvent *btn;
-    static int xpos=0,ypos=0;
-    //printf("event type %d\n",evt->type);
-    switch (evt->type) {
-        case INPUT_EVENT_KIND_KEY:
-            qcode=qemu_input_key_value_to_qcode(evt->u.key.data->key);
-            up=1-evt->u.key.data->down;
 
- //           printf("keyboard_event:%d %d\n",qcode, evt->u.key.data->down);
-            if(qcode==Q_KEY_CODE_1) {
-                set_gpio(s,0,up);
-            }
-            if(qcode==Q_KEY_CODE_2) {
-                set_gpio(s,35,up);
-            }
-            if(qcode==Q_KEY_CODE_R) {
-                qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
-            }
-            int touch_codes[]={Q_KEY_CODE_7,Q_KEY_CODE_8,Q_KEY_CODE_9,Q_KEY_CODE_0};
-            int tsens[]={2,3,8,9};
-            for(int i=0;i<4;i++)
-	            if(qcode==touch_codes[i])
-			touch_sensor[tsens[i]]=1000*(1-up);
-        break;
-        
-        case INPUT_EVENT_KIND_ABS:
-            move=evt->u.abs.data;
-
-        //  printf("move %ld %d\n", move->value, move->axis);
-            if(move->axis==0) xpos=move->value;
-            if(move->axis==1) ypos=move->value;
-            break;
-        case INPUT_EVENT_KIND_BTN:
-            btn = evt->u.btn.data;
-            
-//            printf("btn %d %d %d %d\n",xpos, ypos,  btn->button, btn->down);
-            QemuConsole *con = qemu_console_lookup_by_index(0);
-            DisplaySurface *surface=qemu_console_surface(con);
-            int portrait=surface_height(surface)>surface_width(surface);
-            up=(1-btn->down);
-            if(up) {
-                if(!(s->gpio_in&1))
-                    set_gpio(s,0,up);
-                if(!(s->gpio_in1&8))
-                    set_gpio(s,35,up);
-		for(int i=2;i<10;i++)
-		    touch_sensor[i]=0;
-                break;
-            }
-            if(portrait) {
-                if(xpos>24996 && xpos<27962 && ypos>28481 && ypos<30347) {
-                    set_gpio(s,35,up);
-                } 
-                if(xpos>3071 && xpos<6616 && ypos>28481 && ypos<30347) {
-                    set_gpio(s,0,up);
-                }
-                if(xpos>30876 && xpos<32530 && ypos>23503 && ypos<24713 && up==0)
-                    qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
-		int xs[]={0,0,1417,1417,1417,1417,0,30010,30010,30010};
-		int ys[]={0,0,12132,13791,15312,16694,0,18388,12201,13860};
-		for(int i=2;i<10;i++) {
-			if(i!=6) {
-				if(xpos>(xs[i]-PW) && xpos<(xs[i]+PW) &&
-				ypos>(ys[i]-PW) && ypos<(ys[i]+PW))
-					touch_sensor[i]=1000;
-			}
-		}
-            } else {
-                if(xpos>28308 && xpos<30451 && ypos>5199 && ypos<8428) {
-                    set_gpio(s,35,up);
-                } 
-                if(xpos>28308 && xpos<30451 && ypos>26386 && ypos<29852) {
-                    set_gpio(s,0,up);
-                }
-                if(xpos>23607 && xpos<24540 && ypos>551 && ypos<1732 && up==0)
-                    qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
-		int xs[]={0,0,12166,13618,15277,16798,0,18388,12166,13791};
-                int ys[]={0,0,31743,31743,31743,31743,0,2993,2993,2993};
-                for(int i=2;i<10;i++) {
-                        if(i!=6) { 
-                                if(xpos>(xs[i]-PW) && xpos<(xs[i]+PW) &&
-                                ypos>(ys[i]-PW) && ypos<(ys[i]+PW))
-                                        touch_sensor[i]=1000;
-                        }
-                }
-
-            }
-            break;
-        default:
-        break;
-    }
-
-}
-
-static QemuInputHandler gpio_keyboard_handler = {
-    .name  = "GPIO Keys",
-    .mask  = INPUT_EVENT_MASK_KEY | INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_ABS,
-    .event = gpio_keyboard_event,
-};
 
 static void esp32_gpio_realize(DeviceState *dev, Error **errp)
 {
-    qemu_input_handler_register(dev, &gpio_keyboard_handler);
 }
 
 static void esp32_gpio_init(Object *obj)

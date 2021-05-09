@@ -116,20 +116,16 @@ static uint64_t esp32_spi_read(void *opaque, hwaddr addr, unsigned int size)
         break;
 
     }
-//    qemu_log("spi_read %lx, %lx\n",addr, r);
     return r;
 }
 
 static void esp32_spi_write(void *opaque, hwaddr addr,
                        uint64_t value, unsigned int size)
 {
-//    qemu_log("spi_write %lx, %lx\n",addr, value);
-
     Esp32SpiState *s = ESP32_SPI(opaque);
     switch (addr) {
     case A_SPI_W0 ... A_SPI_W0 + (ESP32_SPI_BUF_WORDS - 1) * sizeof(uint32_t):
         s->data_reg[(addr - A_SPI_W0) / sizeof(uint32_t)] = value;
-  //      qemu_log("spi_data %lx, %lx\n",addr, value);
         break;
     case A_SPI_ADDR:
         s->addr_reg = value;
@@ -165,7 +161,6 @@ static void esp32_spi_write(void *opaque, hwaddr addr,
         s->pin_reg = value;
         break;
     case A_SPI_CMD:
-//        qemu_log("spi_cmd %lx, %lx\n",addr, value);
         esp32_spi_do_command(s, value);
         break;
     case A_SPI_SLAVE:
@@ -218,12 +213,15 @@ static void esp32_spi_cs_set(Esp32SpiState *s, int value)
 
 static void esp32_spi_transaction(Esp32SpiState *s, Esp32SpiTransaction *t)
 {
-//qemu_log("spi_transaction %x, %x, %ls, %x\n",t->cmd,t->addr,t->data, t->data_tx_bytes);
+    uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     esp32_spi_cs_set(s, 0);
     esp32_spi_txrx_buffer(s, &t->cmd, t->cmd_bytes, 0);
     esp32_spi_txrx_buffer(s, &t->addr, t->addr_bytes, 0);
     esp32_spi_txrx_buffer(s, t->data, t->data_tx_bytes, t->data_rx_bytes);
     esp32_spi_cs_set(s, 1);
+    uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;  // about 75fps, same a real hw
+    timer_mod_ns(&s->spi_timer,ns_now + ns_to_timeout);
+
 }
 
 /* Convert one of the hardware "bitlen" registers to a byte count */
@@ -321,12 +319,11 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
             // a DMA transfer
             int data = 0;
             int len;
-            uint8_t buffer[4096];
+            uint32_t buffer[1024];
+            // outlink holds the bottom bits of the address of
+            // the DMA command list 
             unsigned addr = (0x3ff00000 + (s->outlink_reg & 0xfffff));
             int v[3];
-            
-            // this assumes it's contiguous which should be true
-            // because the idf only allows dma from contiguous blocks.
             int total_len=0;
             uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
             esp32_spi_cs_set(s, 0);
@@ -337,11 +334,12 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
                 len = v[0] & 4095;
                 data = v[1];
                 addr = v[2];
+                buffer[0]=0;
                 // copy the data into a buffer (max 4092 bytes)
                 address_space_read(&address_space_memory, data,
                                    MEMTXATTRS_UNSPECIFIED, buffer, len);
                 
-                for (int i = 0; i < len; i++) {    
+                for (int i = 0; i < (len+3)/4; i++) {    
                     ssi_transfer(s->spi, buffer[i]);
                 }
                 total_len+=len;

@@ -13,6 +13,10 @@
 #include "hw/ssi/ssi.h"
 #include "ui/console.h"
 #include "st7789v.h"
+#include "ui/input.h"
+#include "hw/irq.h"
+#include "hw/display/st7789v.h"
+#include "sysemu/runstate.h"
 
 #define DEBUG 0
 
@@ -27,12 +31,13 @@ struct  St7789vState {
 
     uint32_t cmd_len;
     int32_t cmd;
-    int32_t cmd_data[8];
+//    int32_t cmd_data[8];
     uint32_t current_command;
     int data_index;
     uint32_t redraw;
     int cmd_mode;
     int little_endian;
+    int width,height,x_offset,y_offset;
     int32_t x_start;
     int32_t x_end;
     int32_t y_start;
@@ -40,6 +45,7 @@ struct  St7789vState {
     int32_t x;
     int32_t y;
     int backlight;
+    qemu_irq button[2];
 };
 
 #define TYPE_ST7789V "st7789v"
@@ -53,8 +59,6 @@ void update_irq(St7789vState *s);
 
 unsigned short frame_buffer[240 * 135];
 
-static int redraw=0;
-
 extern const struct {
   guint          width;
   guint          height;
@@ -62,11 +66,9 @@ extern const struct {
   guint8         pixel_data[416 * 948 * 4 + 1];
 } ttgo_board_skin;
 
-static int width,height,x_offset,y_offset;;
 
-void draw_skin(St7789vState *s);
 
-void draw_skin(St7789vState *s) {
+static void draw_skin(St7789vState *s) {
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
     for (int i = 0; i < ttgo_board_skin.height/REDUCE; i++)
@@ -83,7 +85,7 @@ void draw_skin(St7789vState *s) {
 		red=red/(REDUCE*REDUCE);green=green/(REDUCE*REDUCE);
 		blue=blue/(REDUCE*REDUCE);trans=trans/(REDUCE*REDUCE);
             if(trans<200) {red=green=blue=0;trans=255;}
-            if(width<height) // portrait
+            if(s->width<s->height) // portrait
                 dest[i*ttgo_board_skin.width/REDUCE+j]=(trans<<24) | (red<<16) | (green<<8) | blue; 
             else
                 dest[(ttgo_board_skin.width/REDUCE-j-1)*ttgo_board_skin.height/REDUCE+i]=(trans<<24) | (red<<16) | (green<<8) | blue; 
@@ -92,72 +94,64 @@ void draw_skin(St7789vState *s) {
 
 }
 
+// trnsfer 32 bits at a time to speed things up.
 static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
 {
     St7789vState *s = ST7789V(dev);
-
     if(s->cmd_mode) {
         s->current_command=data;
         s->data_index=0;
     } else {
+        uint8_t *bytes=(uint8_t *)&data;
         switch (s->current_command) {
             case ST7789_MADCTL:
                 if (data == 0 || data == 8) {  // portrait
                     qemu_console_resize(s->con, ttgo_board_skin.width / REDUCE,
                                         ttgo_board_skin.height / REDUCE);
-                    width = 135;
-                    height = 240;
-                    x_offset = 52;
-                    y_offset = 40;
+                    s->width = 135;
+                    s->height = 240;
+                    s->x_offset = 52;
+                    s->y_offset = 40;
                 } else {  // landscape
                     qemu_console_resize(s->con, ttgo_board_skin.height / REDUCE,
                                         ttgo_board_skin.width / REDUCE);
-                    width = 240;
-                    height = 135;
-                    x_offset = 40;
-                    y_offset = 53;
+                    s->width = 240;
+                    s->height = 135;
+                    s->x_offset = 40;
+                    s->y_offset = 53;
                 }
                 draw_skin(s);
                 break;
             case ST7789_CASET:
-                s->cmd_data[s->data_index++]=data;
-                if(s->data_index==4) {
-                    s->x_start = s->cmd_data[1] + s->cmd_data[0] * 256;
-                    s->x_end = s->cmd_data[3] + s->cmd_data[2] * 256;
-                    s->x = s->x_start;
-                }
+                s->x_start = bytes[1]+bytes[0]*256;
+                s->x_end = bytes[3]+bytes[2]*256;
+                s->x = s->x_start;
                 break;
             case ST7789_RASET:
-                s->cmd_data[s->data_index++]=data;
-                if(s->data_index==4) {
-                    s->y_start = s->cmd_data[1] + s->cmd_data[0] * 256;
-                    s->y_end = s->cmd_data[3] + s->cmd_data[2] * 256;
-                    s->y = s->y_start;
-                }
+                s->y_start = bytes[1]+bytes[0]*256;
+                s->y_end = bytes[3]+bytes[2]*256;
+                s->y = s->y_start;
                 break;
             case ST7789_RAMCTRL:
                 s->little_endian = 1;
                 break;
             case ST7789_RAMWR:
-                s->cmd_data[(s->data_index++)%2]=data;
-                if(((s->data_index)%2)==1) break;
-
-                if (!s->little_endian) {
-                    data = (s->cmd_data[0] << 8) | s->cmd_data[1];
-                } else {
-                    data = (s->cmd_data[1] << 8) | s->cmd_data[0];
-                }
-                uint16_t offset = (s->y - y_offset) * width + s->x - x_offset;
-                if (offset < (135 * 240)) frame_buffer[offset] = data;
-                s->x++;
-                if (s->x > s->x_end) {
-                    s->x = s->x_start;
-                    s->y++;
-                }
-                if ((s->y > s->y_end)) {
-                    s->y = s->y_start;
-                    s->x = s->x_start;
-                    redraw=1;
+                for(int i=0;i<2;i++) {
+                    uint16_t offset = (s->y - s->y_offset) * s->width + 
+                        s->x - s->x_offset;
+                    if (offset < (135 * 240)) frame_buffer[offset] = data;
+                    s->x++;
+                    if (s->x > s->x_end) {
+                        s->x = s->x_start;
+                        s->y++;
+                    }
+                    if ((s->y > s->y_end)) {
+                        s->y = s->y_start;
+                        s->x = s->x_start;
+                        s->redraw=1;
+                        break;
+                    }
+                    data=data>>16;
                 }
                 break;
             }
@@ -176,23 +170,38 @@ static void st7789v_cd(void *opaque, int n, int level)
 static void st7789v_backlight(void *opaque, int n, int level)
 {
     St7789vState *s = (St7789vState *)opaque;
+    if(s->backlight != level) {
+        DisplaySurface *surface=qemu_console_surface(s->con);
+        int portrait=surface_height(surface)>surface_width(surface);
+        volatile unsigned *dest = (unsigned *)surface_data(surface);
+        uint32_t px=level?(64<<16)|(64<<8)|(64):0;
+        if(portrait) {
+            for(int y=0;y<240*MAGNIFY;y++)
+                for(int x=0;x<135*MAGNIFY;x++)
+                    dest[(y+126/REDUCE)*ttgo_board_skin.width/REDUCE+x+62/REDUCE]=px^(rand()&0x0f0f0f);
+        } else {
+            for(int y=0;y<135*MAGNIFY;y++)
+                for(int x=0;x<240*MAGNIFY;x++)
+                    dest[(y+82/REDUCE)*ttgo_board_skin.height/REDUCE+x+126/REDUCE]=px^(rand()&0x0f0f0f);
+        }
+        dpy_gfx_update(s->con, 0, 0, surface_width(surface), surface_height(surface));
+    }
     s->backlight = level;
 }
 
-int pp = 0;
 static void st7789_update_display(void *opaque) {
     St7789vState *s = (St7789vState *)opaque;
-    if (!redraw) return;
+    if (!s->redraw) return;
     
     DisplaySurface *surface = qemu_console_surface(s->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
 
 
-    for (int i = 0; i < width; i++)
-        for (int j = 0; j < height; j++)
+    for (int i = 0; i < s->width; i++)
+        for (int j = 0; j < s->height; j++)
             for (int ii = 0; ii < MAGNIFY; ii++)
                 for (int jj = 0; jj < MAGNIFY; jj++) {
-                    unsigned fbv = frame_buffer[j * width + i];
+                    unsigned fbv = frame_buffer[j * s->width + i];
                     int red = (fbv & 0xf800) >> 8;
                     int green = (fbv & 0x7e0) >> 3;
                     int blue = (fbv & 0x1f) << 3;
@@ -201,7 +210,7 @@ static void st7789_update_display(void *opaque) {
                         green=green>>3;
                         blue=blue>>3;
                     }
-                    if(width>height) { // landscape
+                    if(s->width>s->height) { // landscape
                         int x=i*MAGNIFY+ii+126/REDUCE;
                         int y=j*MAGNIFY+jj+82/REDUCE;
                         *(dest + y*ttgo_board_skin.height/REDUCE+x) = (red << 16) | (green << 8) | blue;
@@ -211,16 +220,18 @@ static void st7789_update_display(void *opaque) {
                         *(dest + y*ttgo_board_skin.width/REDUCE+x) = (red << 16) | (green << 8) | blue;
                     }
                 }
-    redraw = 0;
+    s->redraw = 0;
 
-    if(width>height)
-        dpy_gfx_update(s->con, 126/REDUCE, 82/REDUCE, width * MAGNIFY, height * MAGNIFY);
+    if(s->width>s->height)
+        dpy_gfx_update(s->con, 126/REDUCE, 82/REDUCE, 
+            s->width * MAGNIFY, s->height * MAGNIFY);
     else
-        dpy_gfx_update(s->con, 62/REDUCE, 126/REDUCE, width * MAGNIFY, height * MAGNIFY);
-    pp += 10;
+        dpy_gfx_update(s->con, 62/REDUCE, 126/REDUCE, 
+            s->width * MAGNIFY, s->height * MAGNIFY);
 }
 static void st7789_invalidate_display(void *opaque) {
-    redraw = 1;
+    St7789vState *s = (St7789vState *)opaque;
+    s-> redraw = 1;
 }
 
 static const GraphicHwOps st7789_ops = {
@@ -228,26 +239,152 @@ static const GraphicHwOps st7789_ops = {
     .gfx_update = st7789_update_display,
 };
 
+extern int touch_sensor[10];
+#define PW 1200
+static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
+                                InputEvent *evt) {
+    St7789vState *s = ST7789V(dev);
+    int qcode, up;
+    InputMoveEvent *move;
+    InputBtnEvent *btn;
+    static int xpos = 0, ypos = 0;
+    // printf("event type %d\n",evt->type);
+    switch (evt->type) {
+        case INPUT_EVENT_KIND_KEY:
+            qcode = qemu_input_key_value_to_qcode(evt->u.key.data->key);
+            up = 1 - evt->u.key.data->down;
 
+            //           printf("keyboard_event:%d %d\n",qcode,
+            //           evt->u.key.data->down);
+            if (qcode == Q_KEY_CODE_1) {
+                qemu_set_irq(s->button[0], up);
+            }
+            if (qcode == Q_KEY_CODE_2) {
+                qemu_set_irq(s->button[1], up);
+            }
+            if (qcode == Q_KEY_CODE_R) {
+                qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+            }
+            int touch_codes[] = {Q_KEY_CODE_7, Q_KEY_CODE_8, Q_KEY_CODE_9,
+                                 Q_KEY_CODE_0};
+            int tsens[] = {2, 3, 8, 9};
+            for (int i = 0; i < 4; i++)
+                if (qcode == touch_codes[i])
+                    touch_sensor[tsens[i]] = 1000 * (1 - up);
+            break;
+
+        case INPUT_EVENT_KIND_ABS:
+            move = evt->u.abs.data;
+
+            //  printf("move %ld %d\n", move->value, move->axis);
+            if (move->axis == 0) xpos = move->value;
+            if (move->axis == 1) ypos = move->value;
+            break;
+        case INPUT_EVENT_KIND_BTN:
+            btn = evt->u.btn.data;
+
+            //            printf("btn %d %d %d %d\n",xpos, ypos,  btn->button,
+            //            btn->down);
+            QemuConsole *con = qemu_console_lookup_by_index(0);
+            DisplaySurface *surface = qemu_console_surface(con);
+            int portrait = surface_height(surface) > surface_width(surface);
+            up = (1 - btn->down);
+            if (up) {
+                //                if(!(s->gpio_in&1))
+                qemu_set_irq(s->button[0], up);
+                qemu_set_irq(s->button[1], up);
+                //                    set_gpio(s,0,up);
+                //                if(!(s->gpio_in1&8))
+                //                    set_gpio(s,35,up);
+                for (int i = 2; i < 10; i++) touch_sensor[i] = 0;
+                break;
+            }
+            if (portrait) {
+                if (xpos > 24996 && xpos < 27962 && ypos > 28481 &&
+                    ypos < 30347) {
+                    qemu_set_irq(s->button[1], up);
+                    //                    set_gpio(s,35,up);
+                }
+                if (xpos > 3071 && xpos < 6616 && ypos > 28481 &&
+                    ypos < 30347) {
+                    qemu_set_irq(s->button[0], up);
+                    //                    set_gpio(s,0,up);
+                }
+                if (xpos > 30876 && xpos < 32530 && ypos > 23503 &&
+                    ypos < 24713 && up == 0)
+                    qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+                int xs[] = {0,    0, 1417,  1417,  1417,
+                            1417, 0, 30010, 30010, 30010};
+                int ys[] = {0,     0, 12132, 13791, 15312,
+                            16694, 0, 18388, 12201, 13860};
+                for (int i = 2; i < 10; i++) {
+                    if (i != 6) {
+                        if (xpos > (xs[i] - PW) && xpos < (xs[i] + PW) &&
+                            ypos > (ys[i] - PW) && ypos < (ys[i] + PW))
+                            touch_sensor[i] = 1000;
+                    }
+                }
+            } else {
+                if (xpos > 28308 && xpos < 30451 && ypos > 5199 &&
+                    ypos < 8428) {
+                    qemu_set_irq(s->button[1], up);
+                    //                    set_gpio(s,35,up);
+                }
+                if (xpos > 28308 && xpos < 30451 && ypos > 26386 &&
+                    ypos < 29852) {
+                    qemu_set_irq(s->button[0], up);
+                    //                    set_gpio(s,0,up);
+                }
+                if (xpos > 23607 && xpos < 24540 && ypos > 551 && ypos < 1732 &&
+                    up == 0)
+                    qemu_system_reset_request(SHUTDOWN_CAUSE_GUEST_RESET);
+                int xs[] = {0,     0, 12166, 13618, 15277,
+                            16798, 0, 18388, 12166, 13791};
+                int ys[] = {0,     0, 31743, 31743, 31743,
+                            31743, 0, 2993,  2993,  2993};
+                for (int i = 2; i < 10; i++) {
+                    if (i != 6) {
+                        if (xpos > (xs[i] - PW) && xpos < (xs[i] + PW) &&
+                            ypos > (ys[i] - PW) && ypos < (ys[i] + PW))
+                            touch_sensor[i] = 1000;
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+static QemuInputHandler gpio_keyboard_handler = {
+    .name  = "GPIO Keys",
+    .mask  = INPUT_EVENT_MASK_KEY | INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_ABS,
+    .event = gpio_keyboard_event,
+};
 
 static void st7789v_realize(SSISlave *d, Error **errp) {
-    DeviceState *dev = DEVICE(d);
+    
     St7789vState *s = ST7789V(d);
-    static QemuConsole *console=0;
-    if(console==0) {
-      console = graphic_console_init(dev, 0, &st7789_ops, s);
-      s->con = console;
-      width=240;
-      height=135;
-      x_offset=40;
-      y_offset=53;
-      qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE, ttgo_board_skin.width/REDUCE);
-      draw_skin(s);
-    } else {
-      s->con = console;
-    }
+    DeviceState *dev = DEVICE(s);
+
+    qemu_input_handler_register(dev, &gpio_keyboard_handler);
     qdev_init_gpio_in_named(dev, st7789v_cd, "cmd",1);
     qdev_init_gpio_in_named(dev, st7789v_backlight, "backlight", 1);
+    qdev_init_gpio_out_named(dev,s->button,"buttons",2);
+
+     QemuConsole *console=0;
+  //  if(console==0) {
+      console = graphic_console_init(dev, 0, &st7789_ops, s);
+      s->con = console;
+      s->width=240;
+      s->height=135;
+      s->x_offset=40;
+      s->y_offset=53;
+      qemu_console_resize(s->con, ttgo_board_skin.height/REDUCE, ttgo_board_skin.width/REDUCE);
+      draw_skin(s);
+   // } else {
+   //   s->con = console;
+   // }
 }
 
 static void st7789v_class_init(ObjectClass *klass, void *data) {

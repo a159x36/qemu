@@ -42,6 +42,7 @@
 
 typedef struct XtensaCPU XtensaCPU;
 
+extern void st7789v_set_buttons(DeviceState *dev, qemu_irq b0, qemu_irq b1);
 
 enum {
     ESP32_MEMREGION_IROM,
@@ -433,14 +434,6 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
 
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi[i]), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + i));
-                           /*
-        qdev_realize(DEVICE(&s->spi2[i]), &s->periph_bus, &error_fatal);
-
-        esp32_soc_add_periph_device(sys_mem, &s->spi2[i], spi_base[i+2]);
-
-        sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi2[i]), 0,
-                           qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + 2+ i));
-*/
     }
 
 
@@ -493,6 +486,33 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF5c000 , 0x2000);
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
+    
+    /* st7789v is attached to SPI2 */
+    
+    DeviceState *disp=ssi_create_slave(s->spi[2].spi, "st7789v");
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16,
+                                qdev_get_gpio_in_named(disp, "cmd", 0));
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,
+                                qdev_get_gpio_in_named(disp, "backlight", 0));
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 5,
+                                qdev_get_gpio_in_named(disp, "ssi-gpio-cs", 0));
+    qemu_irq in0=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 0);
+    qemu_irq in35=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 35);
+    qdev_connect_gpio_out_named(disp, "buttons", 0, in0);
+    qdev_connect_gpio_out_named(disp, "buttons", 1, in35);
+/*
+    DeviceState *disp1=ssi_create_slave(s->spi[3].spi, "st7789v");
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16,
+                                qdev_get_gpio_in_named(disp1, "cmd", 0));
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,
+                                qdev_get_gpio_in_named(disp1, "backlight", 0));
+    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 5,
+                                qdev_get_gpio_in_named(disp1, "ssi-gpio-cs", 0));
+    qemu_irq in0a=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 0);
+    qemu_irq in35a=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 35);
+    qdev_connect_gpio_out_named(disp1, "buttons", 0, in0a);
+    qdev_connect_gpio_out_named(disp1, "buttons", 1, in35a);
+*/
 }
 
 static void esp32_soc_init(Object *obj)
@@ -587,15 +607,6 @@ static void esp32_soc_init(Object *obj)
     qdev_init_gpio_in_named(DEVICE(s), esp32_clk_update, ESP32_RTC_CLK_UPDATE_GPIO, 1);
     qdev_init_gpio_in_named(DEVICE(s), esp32_timg_cpu_reset, ESP32_TIMG_WDT_CPU_RESET_GPIO, 2);
     qdev_init_gpio_in_named(DEVICE(s), esp32_timg_sys_reset, ESP32_TIMG_WDT_SYS_RESET_GPIO, 2);
-
-    /* st7789v is attached to SPI2 */
-    DeviceState *spi_master = DEVICE(&s->spi[2]);
-    void * spi_bus = qdev_get_child_bus(spi_master, "spi");
-    DeviceState *disp=ssi_create_slave(spi_bus, "st7789v");
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16,
-                                qdev_get_gpio_in_named(disp, "cmd", 0));
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,
-                                qdev_get_gpio_in_named(disp, "backlight", 0));    
 }
 
 static Property esp32_soc_properties[] = {
