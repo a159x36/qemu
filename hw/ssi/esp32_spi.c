@@ -344,9 +344,15 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
                 // copy the data into a buffer (max 4092 bytes)
                 address_space_read(&address_space_memory, data,
                                    MEMTXATTRS_UNSPECIFIED, buffer, len);
-                
-                for (int i = 0; i < (len+3)/4; i++) {    
-                    ssc->transfer(slave,buffer[i]);
+                if(s->xfer_32_bits) {
+                    for (int i = 0; i < (len+3)/4; i++) {    
+                        ssc->transfer(slave,buffer[i]);
+                    }
+                } else {
+                    uint8_t *chb=(uint8_t *)buffer;
+                    for (int i = 0; i < len; i++) {    
+                        ssc->transfer(slave,chb[i]);
+                    }
                 }
                 total_len+=len;
             } while (addr != 0);            
