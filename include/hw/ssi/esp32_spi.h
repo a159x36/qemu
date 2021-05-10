@@ -20,6 +20,7 @@ typedef struct Esp32SpiState {
     SSIBus *spi;
     qemu_irq dma_irq;
     QEMUTimer spi_timer;
+    bool xfer_32_bits;
     uint32_t addr_reg;
     uint32_t ctrl_reg;
     uint32_t status_reg;
@@ -92,5 +93,7 @@ REG32(SPI_EXT2, 0xF8)
 REG32(SPI_EXT3, 0xFC)
 REG32(SPI_DMA_CONF, 0x100)
 REG32(SPI_DMA_OUT_LINK, 0x104)
+    FIELD(SPI_DMA_OUT_LINK, START, 29, 1)
+    FIELD(SPI_DMA_OUT_LINK, ADDR, 0, 20)
 REG32(SPI_DMA_IN_LINK, 0x108)
 

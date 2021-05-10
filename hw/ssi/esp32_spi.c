@@ -213,6 +213,13 @@ static void esp32_spi_cs_set(Esp32SpiState *s, int value)
 
 static void esp32_spi_transaction(Esp32SpiState *s, Esp32SpiTransaction *t)
 {
+    if(s->xfer_32_bits) {
+        uint32_t *data=(uint32_t *)(t->data);
+        for (int i = 0; i < (t->data_tx_bytes+3)/4; i++) {
+            ssi_transfer(s->spi, *data++);
+        }
+        return;
+    }
     uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     esp32_spi_cs_set(s, 0);
     esp32_spi_txrx_buffer(s, &t->cmd, t->cmd_bytes, 0);
@@ -315,18 +322,26 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
         break;
 
     case R_SPI_CMD_USR_MASK:
-        if (s->outlink_reg & 0x20000000) {
+        if (s->outlink_reg & R_SPI_DMA_OUT_LINK_START_MASK) {
             // a DMA transfer
             int data = 0;
             int len;
             uint32_t buffer[1024];
             // outlink holds the bottom bits of the address of
             // the DMA command list 
-            unsigned addr = (0x3ff00000 + (s->outlink_reg & 0xfffff));
+            unsigned addr = (0x3ff00000 | (s->outlink_reg & R_SPI_DMA_OUT_LINK_ADDR_MASK));
             int v[3];
             int total_len=0;
             uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-            esp32_spi_cs_set(s, 0);
+            
+            BusState *b = BUS(s->spi);
+            BusChild *ch = QTAILQ_FIRST(&b->children);
+            SSISlave *slave = SSI_SLAVE(ch->child);
+            SSISlaveClass *ssc = SSI_SLAVE_GET_CLASS(slave);
+
+            
+
+//            esp32_spi_cs_set(s, 0);
             do {
                 // read the next dma command from the list
                 address_space_read(&address_space_memory, addr,
@@ -340,11 +355,11 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
                                    MEMTXATTRS_UNSPECIFIED, buffer, len);
                 
                 for (int i = 0; i < (len+3)/4; i++) {    
-                    ssi_transfer(s->spi, buffer[i]);
+                    ssc->transfer(slave,buffer[i]);
                 }
                 total_len+=len;
             } while (addr != 0);
-            esp32_spi_cs_set(s, 1);
+//            esp32_spi_cs_set(s, 1);
             
             uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;  // about 75fps, same a real hw
             timer_mod_ns(&s->spi_timer,
@@ -415,6 +430,7 @@ static void esp32_spi_init(Object *obj)
 }
 
 static Property esp32_spi_properties[] = {
+    DEFINE_PROP_BOOL("xfer_32_bits",Esp32SpiState,xfer_32_bits,false),
     DEFINE_PROP_END_OF_LIST(),
 };
 

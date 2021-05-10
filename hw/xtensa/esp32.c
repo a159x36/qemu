@@ -421,8 +421,9 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     const hwaddr spi_base[] = {
             DR_REG_SPI0_BASE, DR_REG_SPI1_BASE, DR_REG_SPI2_BASE, DR_REG_SPI3_BASE
     };
-    for (int i = 0; i < ESP32_SPI_COUNT; ++i) {
-        
+    object_property_set_bool(OBJECT(&s->spi[2]),"xfer_32_bits",true, &error_abort);
+    object_property_set_bool(OBJECT(&s->spi[3]),"xfer_32_bits",true, &error_abort);
+    for (int i = 0; i < ESP32_SPI_COUNT; ++i) {        
         qdev_realize(DEVICE(&s->spi[i]), &s->periph_bus, &error_fatal);
 
         esp32_soc_add_periph_device(sys_mem, &s->spi[i], spi_base[i]);
@@ -430,7 +431,6 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
         sysbus_connect_irq(SYS_BUS_DEVICE(&s->spi[i]), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + i));
     }
-
 
     for (int i = 0; i < ESP32_I2C_COUNT; i++) {
         const hwaddr i2c_base[] = {
@@ -452,7 +452,6 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->efuse), 0,
                        qdev_get_gpio_in(intmatrix_dev, ETS_EFUSE_INTR_SOURCE));
 
-//    object_property_set_bool(OBJECT(&s->sens), true, "realized", &error_abort);
     qdev_realize(DEVICE(&s->sens), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->sens, DR_REG_SENS_BASE);
 
@@ -469,7 +468,6 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
 
     esp32_soc_add_unimp_device(sys_mem, "esp32.analog", DR_REG_ANA_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_RTCIO_BASE, 0x400);
-    //esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_SENS_BASE, 0x400);
     esp32_soc_add_unimp_device(sys_mem, "esp32.iomux", DR_REG_IO_MUX_BASE, 0x2000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.hinf", DR_REG_HINF_BASE, 0x1000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.slc", DR_REG_SLC_BASE, 0x1000);
