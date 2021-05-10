@@ -196,10 +196,11 @@ static void esp32_gpio_write(void *opaque, hwaddr addr,
     }
 
     if(addr>0x530 && addr<0x5d0) {
-    //    printf("IOMUX %lx %lx\n",(addr-0x530)/4,value);
+        printf("IOMUX %lx %lx\n",(addr-0x530)/4,value);
         if(value==10)
             printf("Connect GPIO %ld to HSPI_DATA\n",(addr-0x530)/4);
     }
+    
 
     if(s->gpio_out != oldvalue) {
         uint32_t diff= (s->gpio_out ^ oldvalue);

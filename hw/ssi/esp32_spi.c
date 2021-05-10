@@ -23,8 +23,6 @@
 #include "exec/address-spaces.h"
 
 
-
-
 enum {
     CMD_RES = 0xab,
     CMD_DP = 0xb9,
@@ -41,8 +39,8 @@ enum {
 };
 
 static void update_irq(Esp32SpiState *s) {
-    if (s->slave_reg & 0x200) {
-        if (s->slave_reg & 0x10)
+    if (s->slave_reg & R_SPI_SLAVE_TRANS_INTEN_MASK) {
+        if (s->slave_reg & R_SPI_SLAVE_TRANS_DONE_MASK)
             qemu_irq_raise(s->irq);
         else
             qemu_irq_lower(s->irq);
@@ -54,7 +52,7 @@ static void esp32_spi_cs_set(Esp32SpiState *s, int value);
 
 static void esp32_spi_timer_cb(void *opaque) {
     Esp32SpiState *s = ESP32_SPI(opaque);
-    s->slave_reg |= 0x10;
+    s->slave_reg |= R_SPI_SLAVE_TRANS_DONE_MASK;
     esp32_spi_cs_set(s,1);
     update_irq(s);
 }
@@ -220,15 +218,11 @@ static void esp32_spi_transaction(Esp32SpiState *s, Esp32SpiTransaction *t)
         }
         return;
     }
-    uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     esp32_spi_cs_set(s, 0);
     esp32_spi_txrx_buffer(s, &t->cmd, t->cmd_bytes, 0);
     esp32_spi_txrx_buffer(s, &t->addr, t->addr_bytes, 0);
     esp32_spi_txrx_buffer(s, t->data, t->data_tx_bytes, t->data_rx_bytes);
     esp32_spi_cs_set(s, 1);
-    uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;  // about 75fps, same a real hw
-    timer_mod_ns(&s->spi_timer,ns_now + ns_to_timeout);
-
 }
 
 /* Convert one of the hardware "bitlen" registers to a byte count */
@@ -339,9 +333,6 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
             SSISlave *slave = SSI_SLAVE(ch->child);
             SSISlaveClass *ssc = SSI_SLAVE_GET_CLASS(slave);
 
-            
-
-//            esp32_spi_cs_set(s, 0);
             do {
                 // read the next dma command from the list
                 address_space_read(&address_space_memory, addr,
@@ -358,9 +349,7 @@ static void esp32_spi_do_command(Esp32SpiState* s, uint32_t cmd_reg)
                     ssc->transfer(slave,buffer[i]);
                 }
                 total_len+=len;
-            } while (addr != 0);
-//            esp32_spi_cs_set(s, 1);
-            
+            } while (addr != 0);            
             uint64_t ns_to_timeout = s->mosi_dlen_reg * 25;  // about 75fps, same a real hw
             timer_mod_ns(&s->spi_timer,
                                             ns_now + ns_to_timeout);

@@ -18,14 +18,6 @@
 #include "hw/display/st7789v.h"
 #include "sysemu/runstate.h"
 
-#define DEBUG 0
-
-enum {
-    CMD_CASET = 0x2a,
-    CMD_RASET = 0x2b,
-    CMD_RAMWR = 0x2c,
-};
-
 #define PANEL_WIDTH 240
 #define PANEL_HEIGHT 135
 
@@ -63,46 +55,47 @@ OBJECT_DECLARE_SIMPLE_TYPE(St7789vState, ST7789V)
 #define LANDSCAPE_X_OFFSET 40
 #define LANDSCAPE_Y_OFFSET 53
 
-#define MAGNIFY 1
-#define REDUCE 2
+#define SKIN_PORTRAIT_X_OFFSET (62/2)
+#define SKIN_PORTRAIT_Y_OFFSET (126/2)
+#define SKIN_LANDSCAPE_X_OFFSET (126/2)
+#define SKIN_LANDSCAPE_Y_OFFSET (82/2)
+
+//#define MAGNIFY 1
+//#define REDUCE 1
+//#define OREDUCE 2
+
 #define st7789v_REG_SIZE 0x1000
-
-void update_irq(St7789vState *s);
-
-
 
 extern const struct {
   guint          width;
   guint          height;
   guint          bytes_per_pixel; 
-  guint8         pixel_data[];//416 * 948 * 4 + 1];
+  guint8         pixel_data[];
 } ttgo_board_skin;
 
 static void draw_skin(St7789vState *s) {
-    ConsoleState *c=s->con;
+    ConsoleState *c = s->con;
     DisplaySurface *surface = qemu_console_surface(c->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
-    for (int i = 0; i < ttgo_board_skin.height/REDUCE; i++)
-        for (int j = 0; j < ttgo_board_skin.width/REDUCE; j++) {
-	    int red=0,green=0,blue=0,trans=0;
-            for(int ii=0;ii<REDUCE;ii++)
-		for(int jj=0;jj<REDUCE;jj++) {
-            int index=((i*REDUCE+ii)*ttgo_board_skin.width+j*REDUCE+jj)*4;
-            	red+=ttgo_board_skin.pixel_data[index];
-            	green+=ttgo_board_skin.pixel_data[index+1];
-            	blue+=ttgo_board_skin.pixel_data[index+2];
-            	trans+=ttgo_board_skin.pixel_data[index+3];
-		}
-		red=red/(REDUCE*REDUCE);green=green/(REDUCE*REDUCE);
-		blue=blue/(REDUCE*REDUCE);trans=trans/(REDUCE*REDUCE);
-            if(trans<200) {red=green=blue=0;trans=255;}
-            if(c->width<c->height) // portrait
-                dest[i*ttgo_board_skin.width/REDUCE+j]=(trans<<24) | (red<<16) | (green<<8) | blue; 
+    for (int i = 0; i < ttgo_board_skin.height; i++)
+        for (int j = 0; j < ttgo_board_skin.width; j++) {
+            int red = 0, green = 0, blue = 0, trans = 0;
+            int index = (i * ttgo_board_skin.width + j) * 4;
+            red = ttgo_board_skin.pixel_data[index];
+            green = ttgo_board_skin.pixel_data[index + 1];
+            blue = ttgo_board_skin.pixel_data[index + 2];
+            trans = ttgo_board_skin.pixel_data[index + 3];
+            if (trans < 200) {
+                red = green = blue = 0;
+                trans = 255;
+            }
+            if (c->width < c->height)  // portrait
+                dest[i * ttgo_board_skin.width + j] =
+                    (trans << 24) | (red << 16) | (green << 8) | blue;
             else
-                dest[(ttgo_board_skin.width/REDUCE-j-1)*ttgo_board_skin.height/REDUCE+i]=(trans<<24) | (red<<16) | (green<<8) | blue; 
-
+                dest[(ttgo_board_skin.width - j - 1) * ttgo_board_skin.height +i] = 
+                    (trans << 24) | (red << 16) | (green << 8) | blue;
         }
-
 }
 
 // trnsfer 32 bits at a time to speed things up.
@@ -118,15 +111,15 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
         switch (s->current_command) {
             case ST7789_MADCTL:
                 if (data == 0 || data == 8) {  // portrait
-                    qemu_console_resize(c->con, ttgo_board_skin.width / REDUCE,
-                                        ttgo_board_skin.height / REDUCE);
+                    qemu_console_resize(c->con, ttgo_board_skin.width,
+                                        ttgo_board_skin.height);
                     c->width = PANEL_HEIGHT;
                     c->height = PANEL_WIDTH;
                     c->x_offset = PORTRAIT_X_OFFSET;
                     c->y_offset = PORTRAIT_Y_OFFSET;
                 } else {  // landscape
-                    qemu_console_resize(c->con, ttgo_board_skin.height / REDUCE,
-                                        ttgo_board_skin.width / REDUCE);
+                    qemu_console_resize(c->con, ttgo_board_skin.height,
+                                        ttgo_board_skin.width);
                     c->width = PANEL_WIDTH;
                     c->height = PANEL_HEIGHT;
                     c->x_offset = LANDSCAPE_X_OFFSET;
@@ -175,7 +168,6 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
     return 0;
 }
 
-
 /* Command/data input.  */
 static void st7789v_cd(void *opaque, int n, int level)
 {
@@ -193,13 +185,13 @@ static void st7789v_backlight(void *opaque, int n, int level)
         volatile unsigned *dest = (unsigned *)surface_data(surface);
         uint32_t px=level?(64<<16)|(64<<8)|(64):0;
         if(portrait) {
-            for(int y=0;y<PANEL_WIDTH*MAGNIFY;y++)
-                for(int x=0;x<PANEL_HEIGHT*MAGNIFY;x++)
-                    dest[(y+126/REDUCE)*ttgo_board_skin.width/REDUCE+x+62/REDUCE]=px^(rand()&0x0f0f0f);
+            for(int y=0;y<PANEL_WIDTH;y++)
+                for(int x=0;x<PANEL_HEIGHT;x++)
+                    dest[(y+SKIN_PORTRAIT_Y_OFFSET)*ttgo_board_skin.width+x+SKIN_PORTRAIT_X_OFFSET]=px^(rand()&0x0f0f0f);
         } else {
-            for(int y=0;y<PANEL_HEIGHT*MAGNIFY;y++)
-                for(int x=0;x<PANEL_WIDTH*MAGNIFY;x++)
-                    dest[(y+82/REDUCE)*ttgo_board_skin.height/REDUCE+x+126/REDUCE]=px^(rand()&0x0f0f0f);
+            for(int y=0;y<PANEL_HEIGHT;y++)
+                for(int x=0;x<PANEL_WIDTH;x++)
+                    dest[(y+SKIN_LANDSCAPE_Y_OFFSET)*ttgo_board_skin.height+x+SKIN_LANDSCAPE_X_OFFSET]=px^(rand()&0x0f0f0f);
         }
         dpy_gfx_update(c->con, 0, 0, surface_width(surface), surface_height(surface));
     }
@@ -208,44 +200,43 @@ static void st7789v_backlight(void *opaque, int n, int level)
 
 static void st7789_update_display(void *opaque) {
     St7789vState *s = (St7789vState *)opaque;
-    ConsoleState *c=s->con;
+    ConsoleState *c = s->con;
     if (!c->redraw) return;
     DisplaySurface *surface = qemu_console_surface(c->con);
     volatile unsigned *dest = (unsigned *)surface_data(surface);
 
-
-    for (int i = 0; i < c->width; i++)
-        for (int j = 0; j < c->height; j++)
-            for (int ii = 0; ii < MAGNIFY; ii++)
-                for (int jj = 0; jj < MAGNIFY; jj++) {
-                    unsigned fbv = c->frame_buffer[j * c->width + i];
-                    int red = (fbv & 0xf800) >> 8;
-                    int green = (fbv & 0x7e0) >> 3;
-                    int blue = (fbv & 0x1f) << 3;
-                    if(!(s->backlight)) {
-                        red=red>>3;
-                        green=green>>3;
-                        blue=blue>>3;
-                    }
-                    if(c->width > c->height) { // landscape
-                        int x=i*MAGNIFY+ii+126/REDUCE;
-                        int y=j*MAGNIFY+jj+82/REDUCE;
-                        *(dest + y*ttgo_board_skin.height/REDUCE+x) = (red << 16) | (green << 8) | blue;
-                    } else {
-                        int x=i*MAGNIFY+ii+62/REDUCE;
-                        int y=j*MAGNIFY+jj+126/REDUCE;
-                        *(dest + y*ttgo_board_skin.width/REDUCE+x) = (red << 16) | (green << 8) | blue;
-                    }
-                }
+    for (int i = 0; i < c->width; i++) {
+        for (int j = 0; j < c->height; j++) {
+            unsigned fbv = c->frame_buffer[j * c->width + i];
+            int red = (fbv & 0xf800) >> 8;
+            int green = (fbv & 0x7e0) >> 3;
+            int blue = (fbv & 0x1f) << 3;
+            if (!(s->backlight)) {
+                red = red >> 3;
+                green = green >> 3;
+                blue = blue >> 3;
+            }
+            if (c->width > c->height) {  // landscape
+                int x = i + SKIN_LANDSCAPE_X_OFFSET;
+                int y = j + SKIN_LANDSCAPE_Y_OFFSET;
+                *(dest + y * ttgo_board_skin.height + x) =
+                    (red << 16) | (green << 8) | blue;
+            } else {
+                int x = i + SKIN_PORTRAIT_X_OFFSET;
+                int y = j + SKIN_PORTRAIT_Y_OFFSET;
+                *(dest + y * ttgo_board_skin.width + x) =
+                    (red << 16) | (green << 8) | blue;
+            }
+        }
+    }
     c->redraw = 0;
 
-    if(c->width > c->height)
-        dpy_gfx_update(c->con, 126/REDUCE, 82/REDUCE, 
-            c->width * MAGNIFY, c->height * MAGNIFY);
+    if (c->width > c->height) // landscape
+        dpy_gfx_update(c->con, SKIN_LANDSCAPE_X_OFFSET, SKIN_LANDSCAPE_Y_OFFSET, c->width, c->height);
     else
-        dpy_gfx_update(c->con, 62/REDUCE, 126/REDUCE, 
-            c->width * MAGNIFY, c->height * MAGNIFY);
+        dpy_gfx_update(c->con, SKIN_PORTRAIT_X_OFFSET, SKIN_PORTRAIT_Y_OFFSET, c->width, c->height);
 }
+
 static void st7789_invalidate_display(void *opaque) {
     St7789vState *s = (St7789vState *)opaque;
     s->con->redraw = 1;
@@ -265,14 +256,10 @@ static void gpio_keyboard_event(DeviceState *dev, QemuConsole *src,
     InputMoveEvent *move;
     InputBtnEvent *btn;
     static int xpos = 0, ypos = 0;
-    // printf("event type %d\n",evt->type);
     switch (evt->type) {
         case INPUT_EVENT_KIND_KEY:
             qcode = qemu_input_key_value_to_qcode(evt->u.key.data->key);
             up = 1 - evt->u.key.data->down;
-
-            //           printf("keyboard_event:%d %d\n",qcode,
-            //           evt->u.key.data->down);
             if (qcode == Q_KEY_CODE_1) {
                 qemu_set_irq(s->button[0], up);
             }
@@ -382,8 +369,7 @@ static void st7789v_realize(SSISlave *d, Error **errp) {
         console_state.height = PANEL_HEIGHT;
         console_state.x_offset = LANDSCAPE_X_OFFSET;
         console_state.y_offset = LANDSCAPE_Y_OFFSET;
-        qemu_console_resize(console_state.con, ttgo_board_skin.height / REDUCE,
-                            ttgo_board_skin.width / REDUCE);
+        qemu_console_resize(console_state.con, ttgo_board_skin.height , ttgo_board_skin.width);
         draw_skin(s);
     } else {
         s->con = &console_state;

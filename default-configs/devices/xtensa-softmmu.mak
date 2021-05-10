@@ -1,6 +1,6 @@
 # Default configuration for Xtensa
 
-CONFIG_SEMIHOSTING=y
+CONFIG_SEMIHOSTING=n
 
 # Boards:
 #

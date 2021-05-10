@@ -421,6 +421,8 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     const hwaddr spi_base[] = {
             DR_REG_SPI0_BASE, DR_REG_SPI1_BASE, DR_REG_SPI2_BASE, DR_REG_SPI3_BASE
     };
+    // speed up vspi and hspi by allowng the controller to send 32 bits at a time.
+    // this is only suppoerted by the st7789v 
     object_property_set_bool(OBJECT(&s->spi[2]),"xfer_32_bits",true, &error_abort);
     object_property_set_bool(OBJECT(&s->spi[3]),"xfer_32_bits",true, &error_abort);
     for (int i = 0; i < ESP32_SPI_COUNT; ++i) {        
@@ -480,9 +482,8 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF5c000 , 0x2000);
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
     
-    /* st7789v is attached to SPI2 */
-    
-
+    /* st7789v is attached to SPI2 and SPI2 so the both HSPI and VSPI will work, 
+    they share a single console*/
     DeviceState *disp=ssi_create_slave(s->spi[2].spi, "st7789v");
     DeviceState *disp1=ssi_create_slave(s->spi[3].spi, "st7789v");
     qemu_irq cmd_irq=qemu_irq_split(
@@ -491,38 +492,15 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     qemu_irq bl_irq=qemu_irq_split(
                 qdev_get_gpio_in_named(disp, "backlight", 0),
                 qdev_get_gpio_in_named(disp1, "backlight", 0));
- //   qdev_realize_and_unref(dev, &bus->parent_obj, errp);
     qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16, cmd_irq);
     qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,bl_irq);
-    /*
-    
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16,
-                                qdev_get_gpio_in_named(disp, "cmd", 0));
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,
-                                qdev_get_gpio_in_named(disp, "backlight", 0));
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 5,
-                                qdev_get_gpio_in_named(disp, "ssi-gpio-cs", 0));
-    */
+
     qemu_irq in0=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 0);
     qemu_irq in35=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 35);
     qdev_connect_gpio_out_named(disp, "buttons", 0, in0);
     qdev_connect_gpio_out_named(disp, "buttons", 1, in35);
     qdev_connect_gpio_out_named(disp1, "buttons", 0, in0);
     qdev_connect_gpio_out_named(disp1, "buttons", 1, in35);
-/*
-    DeviceState *disp1=ssi_create_slave(s->spi[3].spi, "st7789v");
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 16,
-                                qdev_get_gpio_in_named(disp1, "cmd", 0));
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 4,
-                                qdev_get_gpio_in_named(disp1, "backlight", 0));
-    qdev_connect_gpio_out_named(DEVICE(&s->gpio), ESP32_GPIOS, 5,
-                                qdev_get_gpio_in_named(disp1, "ssi-gpio-cs", 0));
-    qemu_irq in0a=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 0);
-    qemu_irq in35a=qdev_get_gpio_in_named(DEVICE(&s->gpio), ESP32_GPIOS_IN, 35);
-    qdev_connect_gpio_out_named(disp1, "buttons", 0, in0a);
-    qdev_connect_gpio_out_named(disp1, "buttons", 1, in35a);
-    */
-
 }
 
 static void esp32_soc_init(Object *obj)
@@ -591,8 +569,6 @@ static void esp32_soc_init(Object *obj)
         snprintf(name, sizeof(name), "spi%d", i);
         object_initialize_child(obj, name, &s->spi[i], TYPE_ESP32_SPI);
     }
-    //object_initialize_child(obj, "spi2", &s->spi2[0], TYPE_ESP32_ST7789V);
-    //object_initialize_child(obj, "spi3", &s->spi2[1], TYPE_ESP32_ST7789V);
 
     for (int i = 0; i < ESP32_I2C_COUNT; ++i) {
         snprintf(name, sizeof(name), "i2c%d", i);
@@ -715,11 +691,6 @@ static void esp32_machine_init_openeth(Esp32SocState *ss)
         memory_region_add_subregion(sys_mem, reg_base, sysbus_mmio_get_region(sbd, 0));
         memory_region_add_subregion(sys_mem, desc_base, sysbus_mmio_get_region(sbd, 1));
     }
-}
-void esp32_change_spi(int n);
-void esp32_change_spi(int n) {
-    Esp32MachineState *ms=ESP32_MACHINE(qdev_get_machine());
-    printf("change spi %p\n", ms->esp32.spi[3].spi);
 }
 
 static void esp32_machine_init(MachineState *machine)
