@@ -163,7 +163,9 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
                     }
                     uint32_t d32=((d16 & 0xf800) << 8) |
                             ((d16 & 0x7e0) << 5) | 
-                            ((d16 & 0x1f) << 3); 
+                            ((d16 & 0x1f) << 3);
+                    if(!s->backlight) d32=(d32>>2)&0x3f3f3f;
+                        
                     uint32_t offset = (c->y - c->y_offset + c->skin_y_offset) * 
                         c->skin_width + c->x - c->x_offset + c->skin_x_offset;
                     if(offset<ttgo_board_skin.height*ttgo_board_skin.width)

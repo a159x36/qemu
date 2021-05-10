@@ -61,8 +61,8 @@
 #include "qom/object.h"
 
 #define MAX_VCS 10
-#define VC_WINDOW_X_MIN  320
-#define VC_WINDOW_Y_MIN  240
+#define VC_WINDOW_X_MIN  160
+#define VC_WINDOW_Y_MIN  120
 #define VC_TERM_X_MIN     80
 #define VC_TERM_Y_MIN     25
 #define VC_SCALE_MIN    0.25
