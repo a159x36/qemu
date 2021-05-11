@@ -38,19 +38,19 @@ typedef struct ConsoleState {
     int32_t y_end;
     int32_t x; // current draw position
     int32_t y;
+    int little_endian;
+    int backlight;
+    uint32_t current_command;
+    int cmd_mode;
     uint32_t *data; // surface data
 } ConsoleState;
 
+// only one console
 static ConsoleState console_state;
 
 struct  St7789vState {
     SSISlave ssidev;
-    struct ConsoleState *con;
-    uint32_t current_command;
-    uint32_t redraw;
-    int cmd_mode;
-    int little_endian;
-    int backlight;
+    ConsoleState *con;
     qemu_irq button[2];
 };
 
@@ -123,13 +123,12 @@ static void set_landscape(ConsoleState *c) {
 // this needs the spi controller to do the same thing.
 static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
 {
-    St7789vState *s = ST7789V(dev);
-    ConsoleState *c=s->con;
+    ConsoleState *c=&console_state;
     uint8_t *bytes;
-    if(s->cmd_mode) {
-        s->current_command=data;
+    if(c->cmd_mode) {
+        c->current_command=data;
     } else {
-        switch (s->current_command) {
+        switch (c->current_command) {
             case ST7789_MADCTL:
                 if (data == 0 || data == 8) {  // portrait
                     set_portrait(c);
@@ -151,20 +150,20 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
                 break;
             case ST7789_RAMCTRL:
                 if(data & 0x800)
-                    s->little_endian = 1;
+                    c->little_endian = 1;
                 else
-                    s->little_endian = 0;
+                    c->little_endian = 0;
                 break;
             case ST7789_RAMWR:
                 for(int i=0;i<2;i++) {
                     uint16_t d16=data;
-                    if(!s->little_endian) {
+                    if(!c->little_endian) {
                         d16=(d16>>8) | (d16<<8);
                     }
                     uint32_t d32=((d16 & 0xf800) << 8) |
                             ((d16 & 0x7e0) << 5) | 
                             ((d16 & 0x1f) << 3);
-                    if(!s->backlight) d32=(d32>>2)&0x3f3f3f;
+                    if(!c->backlight) d32=(d32>>2)&0x3f3f3f;
                         
                     uint32_t offset = (c->y - c->y_offset + c->skin_y_offset) * 
                         c->skin_width + c->x - c->x_offset + c->skin_x_offset;
@@ -192,37 +191,34 @@ static uint32_t st7789v_transfer(SSISlave *dev, uint32_t data)
 /* Command/data input.  */
 static void st7789v_cd(void *opaque, int n, int level)
 {
-    St7789vState *s = (St7789vState *)opaque;
-    s->cmd_mode = !level;
+    ConsoleState *c=&console_state;
+    c->cmd_mode = !level;
 }
 
 static void st7789v_backlight(void *opaque, int n, int level)
 {
-    St7789vState *s = (St7789vState *)opaque;
-    ConsoleState *c=s->con;
-    if(s->backlight != level) {
-        DisplaySurface *surface=qemu_console_surface(c->con);
-        volatile unsigned *dest = (unsigned *)surface_data(surface);
+    ConsoleState *c=&console_state;
+    if(c->backlight != level) {
+        volatile unsigned *dest = c->data;
         uint32_t px=level?(64<<16)|(64<<8)|(64):0;
         for(int y=0;y<c->height;y++)
             for(int x=0;x<c->width;x++)
-                dest[(y+c->skin_y_offset)*c->skin_width+x+c->skin_x_offset]=px;
-        dpy_gfx_update(c->con, 0, 0, surface_width(surface), surface_height(surface));
+                dest[(y+c->skin_y_offset)*c->skin_width+x+c->skin_x_offset]=px^(rand()&0x0f0f0f);
+        dpy_gfx_update(c->con, c->skin_x_offset, c->skin_y_offset, c->width, c->height);
     }
-    s->backlight = level;
+    c->backlight = level;
 }
 
 static void st7789_update_display(void *opaque) {
-    St7789vState *s = (St7789vState *)opaque;
-    ConsoleState *c = s->con;
+    ConsoleState *c = &console_state;
     if (!c->redraw) return;
     c->redraw = 0;
     dpy_gfx_update(c->con, c->skin_x_offset, c->skin_y_offset, c->width, c->height);
 }
 
 static void st7789_invalidate_display(void *opaque) {
-    St7789vState *s = (St7789vState *)opaque;
-    s->con->redraw = 1;
+    ConsoleState *c = &console_state;
+    c->redraw = 1;
 }
 
 static const GraphicHwOps st7789_ops = {
