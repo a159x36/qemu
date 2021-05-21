@@ -137,6 +137,9 @@ static void esp32_gpio_write(void *opaque, hwaddr addr, uint64_t value,
         case 12:
             s->gpio_out &= ~value;
             break;
+        case A_GPIO_STRAP:
+            s->strap_mode = value;
+            break;
         case 0x44:
             s->gpio_status = value;
             break;

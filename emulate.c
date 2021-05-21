@@ -24,7 +24,7 @@ int main(int argc, char*argv[]) {
         exit(1);
     }
     if(argc==5 && !strcmp(argv[4],"arduino")) {
-	ard=1;
+		ard=1;
     }
     char *firmware_name=argv[1];
     char *build_dir=argv[2];
@@ -48,10 +48,10 @@ int main(int argc, char*argv[]) {
     while(l>0 && package_path[l]!='/' && package_path[l]!='\\') l--;
     package_path[l]=0;
 #if __APPLE__
-    snprintf(cmd,512,"DYLD_LIBRARY_PATH=%s/xtensa-softmmu %s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
+    snprintf(cmd,512,"DYLD_LIBRARY_PATH=%s/xtensa-softmmu %s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on -nic user,model=open_eth"
             ,package_path,package_path);
 #else
-    snprintf(cmd,512,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on"
+    snprintf(cmd,512,"%s/xtensa-softmmu/qemu-system-xtensa -machine esp32 -drive file=esp32flash.bin,if=mtd,format=raw -display default,show-cursor=on -nic user,model=open_eth"
             ,package_path);
 #endif
 
@@ -65,7 +65,7 @@ int main(int argc, char*argv[]) {
     int x=0;
     fwrite(&x, 1, 1, fout);
     fclose(fout);
-    system(cmd);   
+    system(cmd);
 
     return 0;
 }
