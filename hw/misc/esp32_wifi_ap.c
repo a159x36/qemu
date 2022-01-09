@@ -32,7 +32,7 @@ static void Esp32_WLAN_beacon_timer(void *opaque)
         Esp32_WLAN_insert_frame(s, frame);
     }
 
-    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 250000000);
+    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 1000000000);
 }
 
 static void Esp32_WLAN_inject_timer(void *opaque)
@@ -67,7 +67,7 @@ timer_done:
     if (s->inject_queue_size > 0) {
         // there are more packets... schedule
         // the timer for sending them as well
-        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000000);
+        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000);
     } else {
         // we wait until a new packet schedules
         // us again
@@ -84,7 +84,6 @@ timer_done:
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame)
 {
     struct mac80211_frame *i_frame;
-
 
     s->inject_queue_size++;
     i_frame = s->inject_queue;
@@ -180,6 +179,13 @@ void Esp32_WLAN_setup_ap(Esp32WifiState *s)
     s->ap_macaddr[4] = 0x31;
     s->ap_macaddr[5] = 0x59;
 
+    s->macaddr[0] = 0x10;
+    s->macaddr[1] = 0x01;
+    s->macaddr[2] = 0x00;
+    s->macaddr[3] = 0xc4;
+    s->macaddr[4] = 0x0a;
+    s->macaddr[5] = 0x24;
+
     s->inject_timer_running = 0;
     s->inject_sequence_number = 0;
 
@@ -190,7 +196,7 @@ void Esp32_WLAN_setup_ap(Esp32WifiState *s)
    // semctl(s->access_semaphore, 0, SETVAL, 1);
 
     s->beacon_timer = timer_new_ns(QEMU_CLOCK_REALTIME, Esp32_WLAN_beacon_timer, s);
-    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME)+250000000);
+    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME)+100000000);
 
     // setup the timer but only schedule
     // it when necessary...

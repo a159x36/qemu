@@ -25,7 +25,7 @@
 static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
 {
     
-    printf("esp32_wifi_read %ld %p\n",addr,opaque);
+  //  printf("esp32_wifi_read %ld %p\n",addr,opaque);
     Esp32WifiState *s = ESP32_WIFI(opaque);
     uint32_t r = s->mem[addr/4];
     
@@ -70,7 +70,8 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                     break;
                 case 3148:
                     s->event &= ~value;
-                    qemu_set_irq(s->irq,0);
+                    if(s->event==0) qemu_set_irq(s->irq,0);
+                    else qemu_set_irq(s->irq,1);
                     break;
                 case 3360:
                 case 3352:
@@ -92,8 +93,12 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                         buffer[0]=0;
                         address_space_read(&address_space_memory, data,
                                    MEMTXATTRS_UNSPECIFIED, buffer, len);
-                        printf("Received Data: %d %d\n",len,buffer[0]);
-                        Esp32_WLAN_handle_frame(s, (struct mac80211_frame *)buffer);
+                        struct mac80211_frame *frame=(struct mac80211_frame *)buffer;
+                        printf("SendF Received Data: %x %d %d %d\n",data, len,frame->frame_length,buffer[0]);
+                        // frame from esp32 to ap
+                        
+                        frame->frame_length=len+4;
+                        Esp32_WLAN_handle_frame(s, frame);
                     //    s->event=128;
                     //    qemu_set_irq(s->irq,1);
                         setEvent(s,128);
@@ -103,23 +108,31 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                 }
     s->mem[addr/4]=value;
 }
+// frame from ap to esp32
 void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {
     printf("SendFrame %d %d %d\n",s->rxBuffer,length,frame[0]);
+    for(int i=0;i<length;i++) {
+        printf("%d: %d\n",i,frame[i]);
+    }
     if(s->rxBuffer==0) {
         setEvent(s,16777252);
         return;
     }
-    uint8_t header[28+length];
+    uint8_t header[28+length+3];
+    for(int i=0;i<sizeof(header);i++) header[i]=0;
     header[0]=(-60+96) & 255;
     header[1]=11;
     header[2]=177;
-    header[3]=34;
+    header[3]=s->rxInterface ? 32 : 16;
     header[24]=(length + 4)&0xff;
     header[25]=((length + 4)>>8)&15;
     for(int i=0;i<length;i++) {
         header[28+i]=*frame++;
     }
-    length+=28;
+    length+=28+3;
+    header[length-3]=3;
+    header[length-2]=1;
+    header[length-1]=6;
     int v[3];
     int data;
     int addr=s->rxBuffer;
