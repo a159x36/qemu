@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "osdep.h": "c",
+        "module.h": "c",
+        "ssi.h": "c",
+        "console.h": "c",
+        "log.h": "c",
+        "type_traits": "c",
+        "esp32_flash_enc.h": "c"
+    }
+}

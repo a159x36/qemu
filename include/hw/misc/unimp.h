@@ -23,6 +23,8 @@ struct UnimplementedDeviceState {
     unsigned offset_fmt_width;
     char *name;
     uint64_t size;
+    uint64_t default_value;
+    uint32_t *mem;
 };
 
 /**
@@ -40,15 +42,17 @@ struct UnimplementedDeviceState {
  */
 static inline void create_unimplemented_device(const char *name,
                                                hwaddr base,
-                                               hwaddr size)
+                                               hwaddr size, uint32_t default_value)
 {
     DeviceState *dev = qdev_new(TYPE_UNIMPLEMENTED_DEVICE);
 
     qdev_prop_set_string(dev, "name", name);
     qdev_prop_set_uint64(dev, "size", size);
+    qdev_prop_set_uint64(dev, "default_value", default_value);
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
 
     sysbus_mmio_map_overlap(SYS_BUS_DEVICE(dev), 0, base, -1000);
+    
 }
 
 #endif

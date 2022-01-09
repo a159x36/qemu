@@ -25,15 +25,18 @@
 static void esp32_intmatrix_irq_handler(void *opaque, int n, int level)
 {
     Esp32IntMatrixState *s = ESP32_INTMATRIX(opaque);
+    
     s->irq_raw[n] = level;
     for (int i = 0; i < ESP32_CPU_COUNT; ++i) {
         if (s->outputs[i] == NULL) {
             continue;
         }
         int out_index = IRQ_MAP(i, n);
+   //     if(n==0) printf("WifiIRQ o %d\n",out_index);
         for (int int_index = 0; int_index < s->cpu[i]->env.config->nextint; ++int_index) {
             if (s->cpu[i]->env.config->extint[int_index] == out_index) {
                 qemu_set_irq(s->outputs[i][int_index], level);
+    //            if(n==0) printf("WifiIRQ %d\n",int_index);
                 break;
             }
         }

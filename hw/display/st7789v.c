@@ -19,7 +19,7 @@
 #include "st7789v.h"
 #include "ui/input.h"
 #include "hw/irq.h"
-#include "hw/display/st7789v.h"
+//#include "hw/display/st7789v.h"
 #include "sysemu/runstate.h"
 
 #define PANEL_WIDTH 240

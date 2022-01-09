@@ -17,6 +17,10 @@
 #include "hw/misc/esp32_crosscore_int.h"
 #include "hw/ssi/esp32_spi.h"
 #include "hw/misc/esp32_sens.h"
+#include "hw/misc/esp32_ana.h"
+#include "hw/misc/esp32_wifi.h"
+#include "hw/misc/esp32_fe.h"
+#include "hw/misc/esp32_ramdev.h"
 #include "hw/i2c/esp32_i2c.h"
 #include "hw/nvram/esp32_efuse.h"
 #include "hw/xtensa/esp32_intc.h"
@@ -44,6 +48,10 @@ typedef struct Esp32SocState {
     Esp32RsaState rsa;
     Esp32EfuseState efuse;
     Esp32SensState sens;
+    Esp32AnaState ana;
+    Esp32WifiState wifi;
+    Esp32FeState fe;
+    Esp32RamdevState fe2;
     Esp32FlashEncryptionState flash_enc;
     DeviceState *eth;
 

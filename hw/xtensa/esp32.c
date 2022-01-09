@@ -23,7 +23,6 @@
 #include "hw/irq.h"
 #include "hw/i2c/i2c.h"
 #include "hw/qdev-properties.h"
-//#include "hw/ssi/esp32_spi_st7789v.h"
 #include "hw/xtensa/esp32.h"
 #include "sysemu/sysemu.h"
 #include "sysemu/reset.h"
@@ -246,12 +245,22 @@ static void esp32_soc_add_periph_device(MemoryRegion *dest, void* dev, hwaddr dp
     g_free(name);
 }
 
-static void esp32_soc_add_unimp_device(MemoryRegion *dest, const char* name, hwaddr dport_base_addr, size_t size)
+static void esp32_soc_add_unimp_device(MemoryRegion *dest, const char* name, hwaddr dport_base_addr, size_t size, uint32_t default_value)
 {
-    create_unimplemented_device(name, dport_base_addr, size);
+    
+    create_unimplemented_device(name, dport_base_addr, size, default_value);
     char * name_apb = g_strdup_printf("%s-apb", name);
-    create_unimplemented_device(name_apb, dport_base_addr - DR_REG_DPORT_APB_BASE + APB_REG_BASE, size);
+    create_unimplemented_device(name_apb, dport_base_addr - DR_REG_DPORT_APB_BASE + APB_REG_BASE, size, default_value);
     g_free(name_apb);
+    /*
+    MemoryRegion *mr = sysbus_mmio_get_region(SYS_BUS_DEVICE(dev), 0);
+    memory_region_add_subregion_overlap(dest, dport_base_addr, mr, 0);
+    MemoryRegion *mr_apb = g_new(MemoryRegion, 1);
+    char *name = g_strdup_printf("mr-apb-0x%08x", (uint32_t) dport_base_addr);
+    memory_region_init_alias(mr_apb, OBJECT(dev), name, mr, 0, memory_region_size(mr));
+    memory_region_add_subregion_overlap(dest, dport_base_addr - DR_REG_DPORT_APB_BASE + APB_REG_BASE, mr_apb, 0);
+    g_free(name);
+    */
 }
 
 static void esp32_soc_realize(DeviceState *dev, Error **errp)
@@ -457,6 +466,19 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     qdev_realize(DEVICE(&s->sens), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->sens, DR_REG_SENS_BASE);
 
+    qdev_realize(DEVICE(&s->ana), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->ana, DR_REG_ANA_BASE);
+
+    qdev_realize(DEVICE(&s->wifi), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->wifi, DR_REG_WIFI_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->wifi), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_WIFI_MAC_INTR_SOURCE));
+
+    qdev_realize(DEVICE(&s->fe), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->fe, DR_REG_FE_BASE);
+
+    qdev_realize(DEVICE(&s->fe2), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->fe2, DR_REG_FE2_BASE);
 
     qdev_realize(DEVICE(&s->flash_enc), &s->periph_bus, &error_abort);
     esp32_soc_add_periph_device(sys_mem, &s->flash_enc, DR_REG_SPI_ENCRYPT_BASE);
@@ -468,20 +490,25 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     qdev_connect_gpio_out_named(DEVICE(&s->dport), ESP32_DPORT_FLASH_DEC_EN_GPIO, 0,
                                 qdev_get_gpio_in_named(DEVICE(&s->flash_enc), ESP32_FLASH_ENCRYPTION_DEC_EN_GPIO, 0));
 
-    esp32_soc_add_unimp_device(sys_mem, "esp32.analog", DR_REG_ANA_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_RTCIO_BASE, 0x400);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.iomux", DR_REG_IO_MUX_BASE, 0x2000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.hinf", DR_REG_HINF_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.slc", DR_REG_SLC_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.slchost", DR_REG_SLCHOST_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.apbctrl", DR_REG_APB_CTRL_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.i2s0", DR_REG_I2S_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.i2s1", DR_REG_I2S1_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x4000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown", 0x3FF5c000 , 0x2000);
+//    esp32_soc_add_unimp_device(sys_mem, "esp32.analog", DR_REG_ANA_BASE, 0x1000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.rtcio", DR_REG_RTCIO_BASE, 0x400,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.iomux", DR_REG_IO_MUX_BASE, 0x2000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.hinf", DR_REG_HINF_BASE, 0x1000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.slc", DR_REG_SLC_BASE, 0x1000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.slchost", DR_REG_SLCHOST_BASE, 0x1000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.apbctrl", DR_REG_APB_CTRL_BASE, 0x1000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.i2s0", DR_REG_I2S_BASE, 0x1000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.i2s1", DR_REG_I2S1_BASE, 0x1000,0);
+  //  esp32_soc_add_unimp_device(sys_mem, "esp32.fe", DR_REG_FE_BASE, 0x1000);
+ //   esp32_soc_add_unimp_device(sys_mem, "esp32.fe2", DR_REG_FE2_BASE, 0x1000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x2000,-1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phya", 0x3ff74000, 0x2000,-1);
+//   esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi", 0x3FF5c000  , 0x1000,-1);
+
+    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi1", 0x3FF5d000 , 0x1000,-1);
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
-    
+
     /* st7789v is attached to SPI2 and SPI2 so the both HSPI and VSPI will work, 
     they share a single console*/
     DeviceState *disp=ssi_create_slave(s->spi[2].spi, "st7789v");
@@ -582,6 +609,14 @@ static void esp32_soc_init(Object *obj)
     object_initialize_child(obj, "rsa", &s->rsa, TYPE_ESP32_RSA);
 
     object_initialize_child(obj, "sens", &s->sens, TYPE_ESP32_SENS);
+
+    object_initialize_child(obj, "ana", &s->ana, TYPE_ESP32_ANA);
+
+    object_initialize_child(obj, "wifi", &s->wifi, TYPE_ESP32_WIFI);
+
+    object_initialize_child(obj, "fe", &s->fe, TYPE_ESP32_FE);
+
+    object_initialize_child(obj, "fe2", &s->fe2, TYPE_ESP32_RAMDEV);
 
     object_initialize_child(obj, "efuse", &s->efuse, TYPE_ESP32_EFUSE);
 

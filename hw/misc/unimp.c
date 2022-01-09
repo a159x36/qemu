@@ -25,7 +25,7 @@ static uint64_t unimp_read(void *opaque, hwaddr offset, unsigned size)
     qemu_log_mask(LOG_UNIMP, "%s: unimplemented device read  "
                   "(size %d, offset 0x%0*" HWADDR_PRIx ")\n",
                   s->name, size, s->offset_fmt_width, offset);
-    return 0;
+    return s->default_value;//s->mem[offset/4];
 }
 
 static void unimp_write(void *opaque, hwaddr offset,
@@ -37,6 +37,7 @@ static void unimp_write(void *opaque, hwaddr offset,
                   "(size %d, offset 0x%0*" HWADDR_PRIx
                   ", value 0x%0*" PRIx64 ")\n",
                   s->name, size, s->offset_fmt_width, offset, size << 1, value);
+   // s->mem[offset/4]=value;
 }
 
 static const MemoryRegionOps unimp_ops = {
@@ -68,11 +69,14 @@ static void unimp_realize(DeviceState *dev, Error **errp)
     memory_region_init_io(&s->iomem, OBJECT(s), &unimp_ops, s,
                           s->name, s->size);
     sysbus_init_mmio(SYS_BUS_DEVICE(s), &s->iomem);
+    s->mem=(uint32_t *)calloc(s->size,1);
+
 }
 
 static Property unimp_properties[] = {
     DEFINE_PROP_UINT64("size", UnimplementedDeviceState, size, 0),
     DEFINE_PROP_STRING("name", UnimplementedDeviceState, name),
+    DEFINE_PROP_UINT64("default_value", UnimplementedDeviceState, default_value, 0),
     DEFINE_PROP_END_OF_LIST(),
 };
 
