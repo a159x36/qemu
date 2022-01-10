@@ -56,6 +56,7 @@ static void setEvent(Esp32WifiState *s,int e) {
 //    qemu_irq_pulse(s->irq);
 }
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
+extern int wifi_channel;
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
@@ -87,7 +88,10 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                 case 3336:
                 case 3328:
                     if (3221225472 & value) {
+                //        int channel= (3360 - addr) / 8;
+                        
                         // a DMA transfer
+                        
                         int data = 0;
                         int len;
                         uint8_t buffer[sizeof(mac80211_frame)];
@@ -109,18 +113,21 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                         // frame from esp32 to ap
                         
                         frame->frame_length=len-4;
-                        Esp32_WLAN_handle_frame(s, frame);
+                        
+                     //   if(wifi_channel==6 || wifi_channel==8) 
+                            Esp32_WLAN_handle_frame(s, frame);
                         mac80211_frame *framecopy=(mac80211_frame *)malloc(sizeof(mac80211_frame));
                         uint8_t *cp=(uint8_t *)framecopy;
                         for(int i=0;i<len;i++) *cp++=buffer[i];
                         framecopy->frame_length=len-4;
                         printf("framecopy=%p\n",framecopy);
+                     //   if(channel==wifi_channel)
                         Esp32_WLAN_insert_frame(s,framecopy);
                     //    s->event=128;
                     //    qemu_set_irq(s->irq,1);
                     //    qemu_set_irq(s->irq,0);
                         uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                        timer_mod_ns(&s->wifi_timer,ns_now + 1000);
+                        timer_mod_ns(&s->wifi_timer,ns_now + 1000000);
                        // setEvent(s,128);
 //                        this.onTX(o, this, t),
 //                        this.cpu.schedule(this.txComplete, 1e3)

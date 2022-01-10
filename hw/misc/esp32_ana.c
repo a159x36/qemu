@@ -17,6 +17,8 @@
 #include "hw/sysbus.h"
 #include "hw/misc/esp32_ana.h"
 
+int wifi_channel=0;
+
 static uint64_t esp32_ana_read(void *opaque, hwaddr addr, unsigned int size)
 {
     Esp32AnaState *s = ESP32_ANA(opaque);
@@ -28,7 +30,6 @@ static uint64_t esp32_ana_read(void *opaque, hwaddr addr, unsigned int size)
         case 76:
         case 196: r=4294967295;
         break;
-        default: r=s->mem[addr/4]; 
     }
     printf("esp32_ana_read %ld=%d\n",addr,r);
     return r;
@@ -41,6 +42,22 @@ static void esp32_ana_write(void *opaque, hwaddr addr, uint64_t value,
     if(addr==196) {
         s->wifi_channel=value&255;
         printf("wifi channel=%d\n",(int)(value&255));
+        switch(s->wifi_channel) {
+            case 36: wifi_channel=1; break;
+            case 51: wifi_channel=2; break;
+            case 66: wifi_channel=3; break;
+            case 81: wifi_channel=4; break;
+            case 96: wifi_channel=5; break;
+            case 111: wifi_channel=6; break;
+            case 126: wifi_channel=7; break;
+            case 141: wifi_channel=8; break;
+            case 156: wifi_channel=9; break;
+            case 171: wifi_channel=10; break;
+            case 186: wifi_channel=11; break;
+            case 201: wifi_channel=12; break;
+            case 216: wifi_channel=13; break;
+            case 252: wifi_channel=14; break;
+        }
     }
     s->mem[addr/4]=value;
 }

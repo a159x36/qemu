@@ -66,7 +66,7 @@ timer_done:
     if (s->inject_queue_size > 0) {
         // there are more packets... schedule
         // the timer for sending them as well
-        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000);
+        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000000);
     } else {
         // we wait until a new packet schedules
         // us again
@@ -101,7 +101,7 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame)
         // running currently, let's schedule
         // one run...
         s->inject_timer_running = 1;
-        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000);
+        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000000);
     }
 
 }
@@ -527,6 +527,7 @@ void Esp32_WLAN_handleTxBuffer(Esp32WifiState *s, uint32_t queue)
 }
 
 #endif
+extern int wifi_channel;
 void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
 {
     struct mac80211_frame *reply = NULL;
@@ -534,6 +535,7 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
     unsigned char ethernet_frame[1518];
 
     printf("Handle Frame %d %d\n",frame->frame_control.type,frame->frame_control.sub_type);
+  //  if(wifi_channel!=6 && wifi_channel!=8) return;
 
     if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
             (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_PROBE_REQ)) {
