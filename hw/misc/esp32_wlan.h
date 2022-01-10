@@ -156,7 +156,7 @@
 #define IEEE80211_CHANNEL11_FREQUENCY           2462
 
 
-#define IEEE80211_HEADER_SIZE               24
+#define IEEE80211_HEADER_SIZE               30
 
 typedef struct mac80211_frame {
     struct mac80211_frame_control {
@@ -202,7 +202,7 @@ typedef struct mac80211_frame {
     } __attribute__((packed)) sequence_control;
 
     // WHEN IS THIS USED??
-    // uint8_t      address_4[6];
+    uint8_t      address_4[6];
 
     // variable length, 2312 byte plus 4 byte frame-checksum
     uint8_t     data_and_fcs[2316];

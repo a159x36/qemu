@@ -31,7 +31,6 @@ static void Esp32_WLAN_beacon_timer(void *opaque)
         Esp32_WLAN_init_frame(s, frame);
         Esp32_WLAN_insert_frame(s, frame);
     }
-
     timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 1000000000);
 }
 
@@ -59,7 +58,7 @@ static void Esp32_WLAN_inject_timer(void *opaque)
      //   Esp32_WLAN_handleRxBuffer(s, frame, frame->frame_length);
         Esp32_sendFrame(s, (void *)frame, frame->frame_length);
    // }
-
+    printf("free frame%p\n",frame);
     free(frame);
 
 timer_done:
@@ -102,7 +101,7 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame)
         // running currently, let's schedule
         // one run...
         s->inject_timer_running = 1;
-        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 250000000);
+        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000);
     }
 
 }
@@ -635,6 +634,7 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
         Esp32_WLAN_init_frame(s, reply);
         Esp32_WLAN_insert_frame(s, reply);
     }
+
 }
 
 //#endif /* CONFIG_WIN32 */

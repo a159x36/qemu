@@ -6,6 +6,7 @@
         "console.h": "c",
         "log.h": "c",
         "type_traits": "c",
-        "esp32_flash_enc.h": "c"
+        "esp32_flash_enc.h": "c",
+        "esp32_wifi.h": "c"
     }
 }

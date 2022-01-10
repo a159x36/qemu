@@ -16,7 +16,7 @@ typedef struct Esp32WifiState {
     MemoryRegion iomem;
     int event;
     qemu_irq irq;
- //   QEMUTimer wifi_timer;
+    QEMUTimer wifi_timer;
     uint32_t mem[1024];
     int rxInterface;
     int rxBuffer;
