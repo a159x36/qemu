@@ -78,7 +78,8 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                     s->event &= ~value;
                     printf("event=%x\n",s->event);
               //      if(s->event==0) qemu_set_irq(s->irq,1);
-                    qemu_irq_lower(s->irq);
+                    if(s->event==0)
+                        qemu_irq_lower(s->irq);
                //     else qemu_set_irq(s->irq,1);
                    // qemu_irq_pulse(s->irq);
                     break;
@@ -114,21 +115,25 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                         
                         frame->frame_length=len-4;
                         
-                     //   if(wifi_channel==6 || wifi_channel==8) 
+                     //   if(wifi_channel==6 || wifi_channel==8)
+                         if(wifi_channel==AP_WIFI_CHANNEL) {
                             Esp32_WLAN_handle_frame(s, frame);
+                            /*
                         mac80211_frame *framecopy=(mac80211_frame *)malloc(sizeof(mac80211_frame));
                         uint8_t *cp=(uint8_t *)framecopy;
                         for(int i=0;i<len;i++) *cp++=buffer[i];
                         framecopy->frame_length=len-4;
                         printf("framecopy=%p\n",framecopy);
+                        */
                      //   if(channel==wifi_channel)
-                        Esp32_WLAN_insert_frame(s,framecopy);
+        //                Esp32_WLAN_insert_frame(s,framecopy);
                     //    s->event=128;
                     //    qemu_set_irq(s->irq,1);
                     //    qemu_set_irq(s->irq,0);
                         uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-                        timer_mod_ns(&s->wifi_timer,ns_now + 1000000);
-                       // setEvent(s,128);
+                        timer_mod_ns(&s->wifi_timer,ns_now + 10000000);
+                         }
+                   //     setEvent(s,128);
 //                        this.onTX(o, this, t),
 //                        this.cpu.schedule(this.txComplete, 1e3)
                     }

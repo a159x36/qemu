@@ -113,12 +113,14 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
      *  - Beacon Interval
      *  - Capability Information
      */
+    /*
     FRAME_INSERT(0x8d);
     FRAME_INSERT(0x61);
     FRAME_INSERT(0xa5);
     FRAME_INSERT(0x18);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
+    */
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x64);
@@ -146,7 +148,7 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-    FRAME_INSERT(0x01);
+    FRAME_INSERT(AP_WIFI_CHANNEL);
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
@@ -240,7 +242,7 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-    FRAME_INSERT(0x01);
+    FRAME_INSERT(AP_WIFI_CHANNEL);
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;

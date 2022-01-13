@@ -477,8 +477,8 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     qdev_realize(DEVICE(&s->fe), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->fe, DR_REG_FE_BASE);
 
-    qdev_realize(DEVICE(&s->fe2), &s->periph_bus, &error_fatal);
-    esp32_soc_add_periph_device(sys_mem, &s->fe2, DR_REG_FE2_BASE);
+ //   qdev_realize(DEVICE(&s->fe2), &s->periph_bus, &error_fatal);
+ //   esp32_soc_add_periph_device(sys_mem, &s->fe2, DR_REG_FE2_BASE);
 
     qdev_realize(DEVICE(&s->phya), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->phya, 0x3ff74000);
@@ -503,12 +503,11 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s0", DR_REG_I2S_BASE, 0x1000,0);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s1", DR_REG_I2S1_BASE, 0x1000,0);
   //  esp32_soc_add_unimp_device(sys_mem, "esp32.fe", DR_REG_FE_BASE, 0x1000);
- //   esp32_soc_add_unimp_device(sys_mem, "esp32.fe2", DR_REG_FE2_BASE, 0x1000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x2000,-1);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phya", 0x3ff75000, 0x1000,-1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.fe2", DR_REG_FE2_BASE, 0x1000, -1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x1000,-1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phya", 0x3ff75000, 0x1000,0);
 //   esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
     esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi", 0x3FF5c000  , 0x1000,-1);
-
     esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi1", 0x3FF5d000 , 0x1000,-1);
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
 
@@ -619,7 +618,7 @@ static void esp32_soc_init(Object *obj)
 
     object_initialize_child(obj, "fe", &s->fe, TYPE_ESP32_FE);
 
-    object_initialize_child(obj, "fe2", &s->fe2, TYPE_ESP32_RAMDEV);
+  //  object_initialize_child(obj, "fe2", &s->fe2, TYPE_ESP32_RAMDEV);
 
     object_initialize_child(obj, "phya", &s->phya, TYPE_ESP32_RAMDEV);
 
