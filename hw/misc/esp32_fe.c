@@ -24,14 +24,14 @@ static uint64_t esp32_fe_read(void *opaque, hwaddr addr, unsigned int size)
     r=s->mem[addr/4];
     if(addr==124)
         r=0xffffffff;
-    printf("esp32_fe_read %ld=%d\n",addr,r);
+  //  printf("esp32_fe_read %ld=%d\n",addr,r);
     return r;
 }
 
 static void esp32_fe_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
   Esp32FeState *s = ESP32_FE(opaque);
-  printf("esp32_fe_write %ld=%ld\n",addr, value);
+//  printf("esp32_fe_write %ld=%ld\n",addr, value);
   s->mem[addr/4]=(uint32_t)value;
 }
 

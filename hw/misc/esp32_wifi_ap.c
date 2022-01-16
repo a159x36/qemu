@@ -101,7 +101,7 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame)
         // running currently, let's schedule
         // one run...
         s->inject_timer_running = 1;
-        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25000000);
+        timer_mod(s->inject_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 25);
     }
 
 }
@@ -167,7 +167,7 @@ static NetClientInfo net_info = {
     .cleanup = Esp32_WLAN_cleanup,
 };
 
-void Esp32_WLAN_setup_ap(Esp32WifiState *s)
+void Esp32_WLAN_setup_ap(DeviceState *dev,Esp32WifiState *s)
 {
 
     s->ap_state = Esp32_WLAN__STATE_NOT_AUTHENTICATED;
@@ -195,13 +195,21 @@ void Esp32_WLAN_setup_ap(Esp32WifiState *s)
    // semctl(s->access_semaphore, 0, SETVAL, 1);
 
     s->beacon_timer = timer_new_ns(QEMU_CLOCK_REALTIME, Esp32_WLAN_beacon_timer, s);
-    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME)+100000000);
+ //   timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME)+100000000);
 
     // setup the timer but only schedule
     // it when necessary...
     s->inject_timer = timer_new_ns(QEMU_CLOCK_REALTIME, Esp32_WLAN_inject_timer, s);
 
-    s->nic = qemu_new_nic(&net_info, &s->conf, "esp32", "wifi", s);
+    s->nic = qemu_new_nic(&net_info, &s->conf, object_get_typename(OBJECT(s)), dev->id, s);
+
+    for(int i=0;i<nb_nics;i++) {
+        NICInfo *nd = &nd_table[i];
+        if (nd->used && nd->model && strcmp(nd->model, TYPE_ESP32_WIFI) == 0) {
+            DeviceState* dev = qdev_new(TYPE_ESP32_WIFI);
+            qdev_set_nic_properties(dev, nd);
+        }
+    }
 
     qemu_format_nic_info_str(qemu_get_queue(s->nic), s->macaddr);
 }
@@ -554,7 +562,7 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
     } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_DEAUTHENTICATION)) {
         DEBUG_PRINT_AP(("Received deauthentication!\n"));
-        reply = Esp32_WLAN_create_deauthentication();
+     //   reply = Esp32_WLAN_create_deauthentication();
 
         // some systems (e.g. WinXP) won't send a
         // disassociation. just believe that the
@@ -584,6 +592,7 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
             s->ap_state = Esp32_WLAN__STATE_AUTHENTICATED;
         }
     } else if ((frame->frame_control.type == IEEE80211_TYPE_DATA) &&
+               (frame->frame_control.sub_type == IEEE80211_TYPE_DATA_SUBTYPE_DATA) &&
                (s->ap_state == Esp32_WLAN__STATE_ASSOCIATED)) {
         /*
          * The access point uses the 802.11 frame
@@ -615,19 +624,23 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
         ethernet_frame_size = frame->frame_length - 24 - 4 - 8;
 
         // for some reason, the packet is 22 bytes too small (??)
-        ethernet_frame_size += 22;
+//            ethernet_frame_size += 22;
+        printf("sizes:%ld %d\n",ethernet_frame_size,frame->frame_length);
         if (ethernet_frame_size > sizeof(ethernet_frame)) {
             ethernet_frame_size = sizeof(ethernet_frame);
         }
+        printf("frame_size=%ld\n",ethernet_frame_size);
         memcpy(&ethernet_frame[14], &frame->data_and_fcs[8], ethernet_frame_size);
 
         // add size of ethernet header
         ethernet_frame_size += 14;
 
         /*
-         * Send 802.3 frame
-         */
+        * Send 802.3 frame
+        */
+        printf("Sending\n");
         qemu_send_packet(qemu_get_queue(s->nic), ethernet_frame, ethernet_frame_size);
+        
     }
 
     if (reply) {

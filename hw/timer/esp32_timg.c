@@ -162,6 +162,7 @@ static void esp32_timg_write(void *opaque, hwaddr addr,
     } else if (addr >= A_TIMG_LACTCONFIG && addr <= A_TIMG_LACTLOAD) {
         ts = &s->lact;
     }
+    
 
     switch (addr) {
     case A_TIMG_T0CONFIG:
@@ -446,7 +447,6 @@ static void esp32_timg_timer_update_config(Esp32TimgTimerState *ts)
     TIMG_DEBUG_LOG("%s: TG%d base=0x%llx ns=0x%llx en=%d inc=%d autoreload=%d div=%d li=%d ei=%d alarm=%d\n", __func__, ts->parent->id,
              ts->count_base, ts->ns_base, ts->en, ts->inc, ts->autoreload, ts->divider,
              ts->level_int_en, ts->edge_int_en, ts->alarm);
-
     esp32_timg_timer_update_alarm(ts, ns_now);
 }
 
@@ -626,7 +626,7 @@ static void esp32_timg_init(Object *obj)
 
     esp32_timg_timer_init(s, &s->t0, TIMG_T0_INT);
     esp32_timg_timer_init(s, &s->t1, TIMG_T1_INT);
-    esp32_timg_timer_init(s, &s->lact, TIMG_T0_INT);
+    esp32_timg_timer_init(s, &s->lact, TIMG_LACT_INT);
 
     s->wdt.parent = s;
     timer_init_ns(&s->wdt.stage_timer, QEMU_CLOCK_VIRTUAL, esp32_timg_wdt_cb, &s->wdt);

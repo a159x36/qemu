@@ -121,6 +121,7 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     */
+    
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x64);
@@ -170,14 +171,16 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
     frame->frame_control.type = IEEE80211_TYPE_MGT;
     frame->frame_control.sub_type = IEEE80211_TYPE_MGT_SUBTYPE_PROBE_RESP;
     frame->frame_control.flags = 0;
-    frame->duration_id = 0;//314;
+    frame->duration_id = 314;
     frame->sequence_control.fragment_number = 0;
+    /*
     frame->address_4[0]=0;
     frame->address_4[1]=0;
     frame->address_4[2]=0;
     frame->address_4[3]=0;
     frame->address_4[4]=0;
     frame->address_4[5]=0;
+    */
     i = 0;
     buf = (unsigned char *)frame->data_and_fcs;
 
@@ -189,13 +192,14 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
      *  - Beacon Interval
      *  - Capability Information
      */
-    /*
+    
     buf[i++] = 0x8d;
     buf[i++] = 0x61;
     buf[i++] = 0xa5;
     buf[i++] = 0x18;
     buf[i++] = 0x00;
     buf[i++] = 0x00;
+    /*
     buf[i++] = 0x00;
     buf[i++] = 0x00;
     buf[i++] = 0x64;
@@ -278,12 +282,14 @@ mac80211_frame *Esp32_WLAN_create_authentication(void)
      *  - Authentication SEQ
      *  - Status code (successful 0x0)
      */
+    
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x02);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
+    
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
     FRAME_INSERT(4);    /* length */
@@ -360,9 +366,17 @@ mac80211_frame *Esp32_WLAN_create_association_response(void)
      *  - Capability Information
      *  - Status code (successful 0x0)
      *  - Association ID
-     */
+     
     FRAME_INSERT(0x01);
     FRAME_INSERT(0x00);
+    FRAME_INSERT(0x00);
+    FRAME_INSERT(0x00);
+    FRAME_INSERT(0x01);
+    FRAME_INSERT(0xc0);
+    */
+
+    FRAME_INSERT(33);
+    FRAME_INSERT(4);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x01);
@@ -375,8 +389,21 @@ mac80211_frame *Esp32_WLAN_create_association_response(void)
     FRAME_INSERT('a');  /* SSID */
     FRAME_INSERT('n');  /* SSID */
 
-    FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
+FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
+    
+
+    FRAME_INSERT(140);
+    FRAME_INSERT(18);
+    FRAME_INSERT(152);
+    FRAME_INSERT(36);
+    FRAME_INSERT(176);
+    FRAME_INSERT(72);
+    FRAME_INSERT(96);
+    FRAME_INSERT(108);
+    /*
+    FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
+    FRAME_INSERT(8);    
     FRAME_INSERT(0x82);
     FRAME_INSERT(0x84);
     FRAME_INSERT(0x8b);
@@ -387,11 +414,12 @@ mac80211_frame *Esp32_WLAN_create_association_response(void)
     FRAME_INSERT(0x6c);
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_EXTENDED_RATES);
-    FRAME_INSERT(4);    /* length */
+    FRAME_INSERT(4);   
     FRAME_INSERT(0x0c);
     FRAME_INSERT(0x12);
     FRAME_INSERT(0x18);
     FRAME_INSERT(0x60);
+    */
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
@@ -439,7 +467,7 @@ mac80211_frame *Esp32_WLAN_create_data_packet(Esp32WifiState *s,
     if (!frame) {
         return NULL;
     }
-
+    printf("create_data_packet\n");
     frame->next_frame = NULL;
     frame->frame_control.protocol_version = 0;
     frame->frame_control.type = IEEE80211_TYPE_DATA;

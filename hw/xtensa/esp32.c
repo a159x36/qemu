@@ -713,22 +713,35 @@ static void esp32_machine_init_i2c(Esp32SocState *s)
 static void esp32_machine_init_openeth(Esp32SocState *ss)
 {
     SysBusDevice *sbd;
-    NICInfo *nd = &nd_table[0];
     MemoryRegion* sys_mem = get_system_memory();
     hwaddr reg_base = DR_REG_EMAC_BASE;
     hwaddr desc_base = reg_base + 0x400;
     qemu_irq irq = qdev_get_gpio_in(DEVICE(&ss->intmatrix), ETS_ETH_MAC_INTR_SOURCE);
 
-    const char* type_openeth = "open_eth";
-    if (nd->used && nd->model && strcmp(nd->model, type_openeth) == 0) {
-        DeviceState* open_eth_dev = qdev_new(type_openeth);
-        ss->eth = open_eth_dev;
-        qdev_set_nic_properties(open_eth_dev, nd);
-        sbd = SYS_BUS_DEVICE(open_eth_dev);
-        sysbus_realize_and_unref(sbd, &error_fatal);
-        sysbus_connect_irq(sbd, 0, irq);
-        memory_region_add_subregion(sys_mem, reg_base, sysbus_mmio_get_region(sbd, 0));
-        memory_region_add_subregion(sys_mem, desc_base, sysbus_mmio_get_region(sbd, 1));
+    for(int i=0;i<nb_nics;i++) {
+        const char* type_openeth = "open_eth";
+       // const char* type_wifi = "esp32_wifi";
+        NICInfo *nd = &nd_table[i];
+        if (nd->used && nd->model && strcmp(nd->model, type_openeth) == 0) {
+            DeviceState* open_eth_dev = qdev_new(type_openeth);
+            ss->eth = open_eth_dev;
+            qdev_set_nic_properties(open_eth_dev, nd);
+            sbd = SYS_BUS_DEVICE(open_eth_dev);
+            sysbus_realize_and_unref(sbd, &error_fatal);
+            sysbus_connect_irq(sbd, 0, irq);
+            memory_region_add_subregion(sys_mem, reg_base, sysbus_mmio_get_region(sbd, 0));
+            memory_region_add_subregion(sys_mem, desc_base, sysbus_mmio_get_region(sbd, 1));
+        }
+        /*
+        if (nd->used && nd->model && strcmp(nd->model, type_wifi) == 0) {
+            DeviceState* dev = qdev_new(type_wifi);
+            ss->wifi_dev = dev;
+            qdev_set_nic_properties(dev, nd);
+            sbd = SYS_BUS_DEVICE(dev);
+            sysbus_realize_and_unref(sbd, &error_fatal);
+
+        }
+        */
     }
 }
 
@@ -763,6 +776,8 @@ static void esp32_machine_init(MachineState *machine)
     esp32_machine_init_i2c(ss);
 
     esp32_machine_init_openeth(ss);
+
+
 
     /* Need MMU initialized prior to ELF loading,
      * so that ELF gets loaded into virtual addresses

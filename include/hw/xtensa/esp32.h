@@ -55,6 +55,7 @@ typedef struct Esp32SocState {
     Esp32RamdevState phya;
     Esp32FlashEncryptionState flash_enc;
     DeviceState *eth;
+    DeviceState *wifi_dev;
 
     BusState rtc_bus;
     BusState periph_bus;

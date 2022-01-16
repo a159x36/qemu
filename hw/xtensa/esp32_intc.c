@@ -36,7 +36,13 @@ static void esp32_intmatrix_irq_handler(void *opaque, int n, int level)
         for (int int_index = 0; int_index < s->cpu[i]->env.config->nextint; ++int_index) {
             if (s->cpu[i]->env.config->extint[int_index] == out_index) {
                 qemu_set_irq(s->outputs[i][int_index], level);
-                if(n==0) printf("WifiIRQ %d\n",int_index);
+/*
+                if(n==0) printf("WifiIRQ %d %d\n",int_index,level);
+		if(n==17) printf("Lact level %d %d\n",int_index,level);
+		if(n==21) printf("Lact1 level %d %d\n",int_index,level);
+		if(n==61) printf("Lact edge %d %d\n",int_index,level);
+                if(n==62) printf("Lact1 edge %d %d\n",int_index,level);
+*/
                 break;
             }
         }

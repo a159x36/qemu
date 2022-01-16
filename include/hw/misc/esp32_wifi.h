@@ -6,7 +6,7 @@
 #include "sysemu/sysemu.h"
 #include "net/net.h"
 
-#define TYPE_ESP32_WIFI "misc.esp32.wifi"
+#define TYPE_ESP32_WIFI "esp32_wifi"
 #define ESP32_WIFI(obj) OBJECT_CHECK(Esp32WifiState, (obj), TYPE_ESP32_WIFI)
 //OBJECT_CHECK(Esp32WifiState, (obj), TYPE_ESP32_WIFI)
 //(Esp32WifiState *)(obj)
@@ -43,5 +43,5 @@ typedef struct Esp32WifiState {
 
 
 void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame);
-void Esp32_WLAN_setup_ap(Esp32WifiState *s);
+void Esp32_WLAN_setup_ap(DeviceState *dev,Esp32WifiState *s);
 void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length);

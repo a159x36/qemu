@@ -22,7 +22,7 @@ static uint64_t esp32_ramdev_read(void *opaque, hwaddr addr, unsigned int size)
     uint32_t r = 0;
     Esp32RamdevState *s = ESP32_RAMDEV(opaque);
     r=s->mem[addr/4];
-    printf("esp32_ramdev_read %ld=%d\n",addr,r);
+//    printf("esp32_ramdev_read %ld=%d\n",addr,r);
    // r=-1;
     return r;
 }
@@ -30,7 +30,7 @@ static uint64_t esp32_ramdev_read(void *opaque, hwaddr addr, unsigned int size)
 static void esp32_ramdev_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
   Esp32RamdevState *s = ESP32_RAMDEV(opaque);
-  printf("esp32_ramdev_write %ld=%ld\n",addr, value);
+//  printf("esp32_ramdev_write %ld=%ld\n",addr, value);
   s->mem[addr/4]=(uint32_t)value;
 }
 

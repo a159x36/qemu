@@ -59,6 +59,8 @@ static uint64_t esp32_dport_read(void *opaque, hwaddr addr, unsigned int size)
 {
     Esp32DportState *s = ESP32_DPORT(opaque);
     uint64_t r = 0;
+    if(addr<4096) r=s->mem[addr/4];
+   // printf("dport_read %lx\n",addr);
     switch (addr) {
     case A_DPORT_APPCPU_RESET:
         r = s->appcpu_reset_state;
@@ -131,6 +133,9 @@ static void esp32_dport_write(void *opaque, hwaddr addr,
     Esp32DportState *s = ESP32_DPORT(opaque);
     bool old_state;
     uint32_t old_val;
+    //printf("dport_write %lx %lx\n",addr,value);
+    if(addr<4096)
+        s->mem[addr/4]=value;
     switch (addr) {
     case A_DPORT_APPCPU_RESET:
         old_state = s->appcpu_reset_state;
