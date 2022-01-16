@@ -467,7 +467,7 @@ mac80211_frame *Esp32_WLAN_create_data_packet(Esp32WifiState *s,
     if (!frame) {
         return NULL;
     }
-    printf("create_data_packet\n");
+ //   printf("create_data_packet\n");
     frame->next_frame = NULL;
     frame->frame_control.protocol_version = 0;
     frame->frame_control.type = IEEE80211_TYPE_DATA;

@@ -69,45 +69,6 @@
 #endif
 
 
-
-/*
- * The madwifi driver crashes if too
- * many frames are in the receive
- * queue linked list
- *
- * This can happen when interrupts are
- * not picked up right away (what can
- * happen due to qemu's lazy interrupt
- * checking/handling)!!
- *
- * UPDATE: BinaryHAL suddenly seems to
- * work with the WINDOWS_RX_FRAME as well
- * which is even better (because more frames
- * may be received concurrently...)
- */
-#define MAX_CONCURRENT_RX_FRAMES_WINDOWS_OR_OPEN_HAL    999
-#define MAX_CONCURRENT_RX_FRAMES_BINARY_HAL     10
-#define MAX_CONCURRENT_RX_FRAMES            MAX_CONCURRENT_RX_FRAMES_WINDOWS_OR_OPEN_HAL
-
-/*
- * In case we are connecting with a windows guest OS
- * (or the ndiswrapper of the windows driver) we must
- * define this macro... otherwise no packets will be
- * received.
- *
- * If connecting with a linux guest/madwifi with the
- * macro defined it won't work on the other hand!!!
- */
-#define WINXP_DRIVER    1
-#define LINUX_DRIVER    2
-
-#define PCI_CONFIG_AR5212   1
-#define PCI_CONFIG_AR5424   2
-
-
-
-
-
 #define IEEE80211_IDLE                  0xff
 
 #define IEEE80211_TYPE_MGT              0x00
@@ -130,30 +91,9 @@
 
 
 #define IEEE80211_BEACON_PARAM_SSID         0x00
-#define IEEE80211_BEACON_PARAM_SSID_STRING      "\x00"
 #define IEEE80211_BEACON_PARAM_RATES            0x01
-#define IEEE80211_BEACON_PARAM_RATES_STRING     "\x01"
 #define IEEE80211_BEACON_PARAM_CHANNEL          0x03
-#define IEEE80211_BEACON_PARAM_CHANNEL_STRING       "\x03"
 #define IEEE80211_BEACON_PARAM_EXTENDED_RATES       0x32
-#define IEEE80211_BEACON_PARAM_EXTENDED_RATES_STRING    "\x32"
-
-
-
-
-
-
-#define IEEE80211_CHANNEL1_FREQUENCY            2412
-#define IEEE80211_CHANNEL2_FREQUENCY            2417
-#define IEEE80211_CHANNEL3_FREQUENCY            2422
-#define IEEE80211_CHANNEL4_FREQUENCY            2427
-#define IEEE80211_CHANNEL5_FREQUENCY            2432
-#define IEEE80211_CHANNEL6_FREQUENCY            2437
-#define IEEE80211_CHANNEL7_FREQUENCY            2442
-#define IEEE80211_CHANNEL8_FREQUENCY            2447
-#define IEEE80211_CHANNEL9_FREQUENCY            2452
-#define IEEE80211_CHANNEL10_FREQUENCY           2457
-#define IEEE80211_CHANNEL11_FREQUENCY           2462
 
 
 #define IEEE80211_HEADER_SIZE               24
@@ -213,23 +153,6 @@ typedef struct mac80211_frame {
 } QEMU_PACKED mac80211_frame;
 
 
-#define GET_MEM_L(_mem, _addr)          _mem[_addr >> 2]
-#define SET_MEM_L(_mem, _addr, _val)        _mem[_addr >> 2] = _val
-
-#define WRITE_EEPROM(_mem, _val)                    \
-        SET_MEM_L(_mem, AR5K_EEPROM_DATA_5210, _val);       \
-        SET_MEM_L(_mem, AR5K_EEPROM_DATA_5211, _val);
-
-
-
-
-#define Esp32_WLAN_PCI_REVID_ESP32      0x01
-#define Esp32_WLAN_PCI_REVID          Esp32_WLAN_PCI_REVID_ESP32
-
-
-#define KiB                     1024
-#define Esp32_WLAN_MEM_SIZE           (64 * KiB)
-#define Esp32_WLAN_MEM_SANITIZE(x)        (x & (Esp32_WLAN_MEM_SIZE - 1))
 
 #define Esp32_WLAN__STATE_NOT_AUTHENTICATED   0
 #define Esp32_WLAN__STATE_AUTHENTICATED   1
@@ -238,99 +161,5 @@ typedef struct mac80211_frame {
 
 #define Esp32_WLAN__MAX_INJECT_QUEUE_SIZE 20
 
-
-/*
- * We use a semaphore to make sure
- * that accessing the linked lists
- * inside the state is done atomically
- */
-#define ESP32_WLAN_ACCESS_SEM_KEY     20071
-
-
-/*
- * AR521X uses a very complicated algorithm to
- * express current channel... too lazy to understand
- * it... just use a matrix :-)
- *
- * ATTENTION: This matrix is valid only for little-endian
- * as the algorithm uses bitswapping
- *
- * NOTE: Maybe, bitswapping also takes care of this and
- * big-endian values thus correspond with this matrix, but
- * I just don't care ;-)
- */
-struct Esp32_WLAN_frequency {
-    uint32_t   value1;
-    uint32_t   value2;
-    uint32_t   frequency;
-};
-
-struct pending_interrupt {
-    uint32_t status;
-    struct pending_interrupt *next;
-};
-/*
-typedef struct Esp32_WLANState {
-    PCIDevice dev;
-    MemoryRegion mmio_bar;
-
-    uint32_t device_driver_type;
-
-    NICConf conf;
-    NICState *nic;
-
-    uint8_t ipaddr[4];              // currently unused
-    uint8_t macaddr[6];             // mac address
-
-    uint8_t ap_ipaddr[4];               // currently unused
-    uint8_t ap_macaddr[6];              // mac address
-
-    // int irq;
-    qemu_irq irq;
-    uint32_t interrupt_p_mask;          // primary interrupt mask
-    uint32_t interrupt_s_mask[5];           // secondary interrupt masks
-    uint8_t interrupt_enabled;
-    struct pending_interrupt *pending_interrupts;
-    int access_semaphore;
-
-    uint32_t current_frequency_partial_data[2];
-    uint32_t current_frequency;
-
-
-    hwaddr receive_queue_address;
-    uint32_t receive_queue_count;
-
-    uint32_t transmit_queue_size;
-    uint8_t transmit_queue_enabled[16];
-    hwaddr transmit_queue_address[16];
-    uint32_t transmit_queue_processed[16];
-
-    uint32_t mem[Esp32_WLAN_MEM_SIZE / 4];
-
-    int eeprom_size;
-    uint32_t *eeprom_data;
-
-    uint32_t ap_state;
-    int inject_timer_running;
-    unsigned int inject_sequence_number;
-
-    // various timers
-    QEMUTimer *beacon_timer;
-    QEMUTimer *inject_timer;
-
-    int inject_queue_size;
-    struct mac80211_frame *inject_queue;
-
-} Esp32_WLANState;
-*/
-
-/***********************************************************/
-/* PCI Esp32_WLAN definitions */
-/*
-typedef struct PCIEsp32_WLANState {
-    PCIDevice dev;
-    Esp32_WLANState Esp32_WLAN;
-} PCIEsp32_WLANState;
-*/
 
 #endif // esp32_wlan_h

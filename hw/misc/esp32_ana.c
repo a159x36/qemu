@@ -41,7 +41,7 @@ static void esp32_ana_write(void *opaque, hwaddr addr, uint64_t value,
   //  printf("esp32_ana_write %ld %ld\n",addr, value);
     if(addr==196) {
         s->wifi_channel=value&255;
-        printf("wifi channel=%d\n",(int)(value&255));
+     //   printf("wifi channel=%d\n",(int)(value&255));
         switch(s->wifi_channel) {
             case 36: wifi_channel=1; break;
             case 51: wifi_channel=2; break;

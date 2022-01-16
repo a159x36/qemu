@@ -469,10 +469,12 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     qdev_realize(DEVICE(&s->ana), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->ana, DR_REG_ANA_BASE);
 
+/*
     qdev_realize(DEVICE(&s->wifi), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->wifi, DR_REG_WIFI_BASE);
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->wifi), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_WIFI_MAC_INTR_SOURCE));
+                           */
 
     qdev_realize(DEVICE(&s->fe), &s->periph_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->fe, DR_REG_FE_BASE);
@@ -614,7 +616,9 @@ static void esp32_soc_init(Object *obj)
 
     object_initialize_child(obj, "ana", &s->ana, TYPE_ESP32_ANA);
 
-    object_initialize_child(obj, "wifi", &s->wifi, TYPE_ESP32_WIFI);
+    for(int i=0;i<nb_nics;i++)
+        if (nd_table[i].used && nd_table[i].model && strcmp(nd_table[i].model, TYPE_ESP32_WIFI) == 0)
+            object_initialize_child(obj, "wifi", &s->wifi, TYPE_ESP32_WIFI);
 
     object_initialize_child(obj, "fe", &s->fe, TYPE_ESP32_FE);
 
@@ -732,16 +736,17 @@ static void esp32_machine_init_openeth(Esp32SocState *ss)
             memory_region_add_subregion(sys_mem, reg_base, sysbus_mmio_get_region(sbd, 0));
             memory_region_add_subregion(sys_mem, desc_base, sysbus_mmio_get_region(sbd, 1));
         }
-        /*
-        if (nd->used && nd->model && strcmp(nd->model, type_wifi) == 0) {
-            DeviceState* dev = qdev_new(type_wifi);
-            ss->wifi_dev = dev;
-            qdev_set_nic_properties(dev, nd);
-            sbd = SYS_BUS_DEVICE(dev);
+        
+        if (nd->used && nd->model && strcmp(nd->model, TYPE_ESP32_WIFI) == 0) {
+            qdev_set_nic_properties(DEVICE(&ss->wifi), nd);
+            sbd = SYS_BUS_DEVICE(DEVICE(&ss->wifi));
             sysbus_realize_and_unref(sbd, &error_fatal);
-
+//            qdev_realize(DEVICE(&ss->wifi), &ss->periph_bus, &error_fatal);
+            esp32_soc_add_periph_device(sys_mem, &ss->wifi, DR_REG_WIFI_BASE);
+            sysbus_connect_irq(SYS_BUS_DEVICE(&ss->wifi), 0,
+                           qdev_get_gpio_in(DEVICE(&ss->intmatrix), ETS_WIFI_MAC_INTR_SOURCE));
         }
-        */
+        
     }
 }
 
