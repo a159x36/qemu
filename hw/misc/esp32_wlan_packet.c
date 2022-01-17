@@ -53,6 +53,7 @@
 
 #define FRAME_INSERT(_8bit_data)    buf[i++] = _8bit_data
 
+const char *ssid_table[]={"ERR","My Wifi",0,0,0,0,"Public Wifi",0,"Scanlan65_new"};
 
 static int insertCRC(mac80211_frame *frame, uint32_t frame_length)
 {
@@ -129,12 +130,19 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
     FRAME_INSERT(0x01);
     FRAME_INSERT(0x00);
 
-    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
-    FRAME_INSERT(4);    /* length */
-    FRAME_INSERT('Q');  /* SSID */
-    FRAME_INSERT('L');  /* SSID */
-    FRAME_INSERT('a');  /* SSID */
-    FRAME_INSERT('n');  /* SSID */
+//    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
+ //   FRAME_INSERT(4);   
+    /*
+    const char *ssid=ssid_table[wifi_channel];
+    int len=strlen(ssid);
+    FRAME_INSERT(len);   
+    memcpy((char *)buf+i,ssid,len);
+    i+=len;
+    */
+//    FRAME_INSERT('Q');  /* SSID */
+//    FRAME_INSERT('L');  /* SSID */
+//    FRAME_INSERT('a');  /* SSID */
+//    FRAME_INSERT('n');  /* SSID */
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
@@ -149,8 +157,8 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-    FRAME_INSERT(AP_WIFI_CHANNEL);
-
+  //  FRAME_INSERT(AP_WIFI_CHANNEL);
+    FRAME_INSERT(wifi_channel);
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
 }
@@ -216,12 +224,12 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
 
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
-    FRAME_INSERT(4);    /* length */
-    FRAME_INSERT('Q');  /* SSID */
-    FRAME_INSERT('L');  /* SSID */
-    FRAME_INSERT('a');  /* SSID */
-    FRAME_INSERT('n');  /* SSID */
-
+    const char *ssid=ssid_table[wifi_channel];
+    int len=strlen(ssid);
+    FRAME_INSERT(len);    /* length */
+    memcpy((char *)buf+i,ssid,len);
+    i+=len;
+   
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
     /*
@@ -246,7 +254,8 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-    FRAME_INSERT(AP_WIFI_CHANNEL);
+//    FRAME_INSERT(AP_WIFI_CHANNEL);
+    FRAME_INSERT(wifi_channel);
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;

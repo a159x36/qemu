@@ -161,5 +161,5 @@ typedef struct mac80211_frame {
 
 #define Esp32_WLAN__MAX_INJECT_QUEUE_SIZE 20
 
-
+extern int wifi_channel;
 #endif // esp32_wlan_h

@@ -203,7 +203,6 @@ void Esp32_WLAN_setup_ap(DeviceState *dev,Esp32WifiState *s)
     qemu_format_nic_info_str(qemu_get_queue(s->nic), s->macaddr);
 }
 
-extern int wifi_channel;
 void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
 {
     struct mac80211_frame *reply = NULL;

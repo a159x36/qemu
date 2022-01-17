@@ -50,7 +50,6 @@ static void setEvent(Esp32WifiState *s,int e) {
     qemu_set_irq(s->irq, 1);
 }
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
-extern int wifi_channel;
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
@@ -93,7 +92,7 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                 // frame from esp32 to ap
                 frame->frame_length=len-4;
                 frame->next_frame=0;
-                if(wifi_channel==AP_WIFI_CHANNEL)
+                if(wifi_channel==AP_WIFI_CHANNEL || (wifi_channel==AP_WIFI_CHANNEL1) || (wifi_channel==AP_WIFI_CHANNEL2))
                     Esp32_WLAN_handle_frame(s, frame);
                 free(buffer);
                 setEvent(s,128);

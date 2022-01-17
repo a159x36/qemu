@@ -33,6 +33,8 @@
 #include "esp32_wlan.h"
 #include "hw/misc/esp32_wifi.h"
 #define AP_WIFI_CHANNEL 6
+#define AP_WIFI_CHANNEL1 1
+#define AP_WIFI_CHANNEL2 8
 
 void Esp32_WLAN_init_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 
