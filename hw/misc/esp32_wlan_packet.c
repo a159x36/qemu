@@ -66,6 +66,14 @@ static int insertCRC(mac80211_frame *frame, uint32_t frame_length)
     return frame_length + 4;
 }
 
+static int add_ssid(unsigned char *buf,int i,int channel) {
+    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
+    const char *ssid=ssid_table[channel];
+    int len=strlen(ssid);
+    FRAME_INSERT(len);    /* length */
+    memcpy((char *)buf+i,ssid,len);
+    return len+i;
+}
 
 void Esp32_WLAN_init_frame(Esp32WifiState *s, mac80211_frame *frame)
 {
@@ -81,7 +89,7 @@ void Esp32_WLAN_init_frame(Esp32WifiState *s, mac80211_frame *frame)
 }
 
 
-mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
+mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
 {
     unsigned int i;
     unsigned char *buf;
@@ -143,6 +151,7 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
 //    FRAME_INSERT('L');  /* SSID */
 //    FRAME_INSERT('a');  /* SSID */
 //    FRAME_INSERT('n');  /* SSID */
+    i=add_ssid(buf,i,channel);
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
@@ -157,8 +166,7 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(void)
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-  //  FRAME_INSERT(AP_WIFI_CHANNEL);
-    FRAME_INSERT(wifi_channel);
+    FRAME_INSERT(channel);
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
 }
@@ -222,14 +230,8 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
     buf[i++] = 33;
     buf[i++] = 4;
 
-
-    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
-    const char *ssid=ssid_table[wifi_channel];
-    int len=strlen(ssid);
-    FRAME_INSERT(len);    /* length */
-    memcpy((char *)buf+i,ssid,len);
-    i+=len;
-   
+    i=add_ssid(buf,i,wifi_channel);
+    
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
     /*
@@ -300,12 +302,7 @@ mac80211_frame *Esp32_WLAN_create_authentication(void)
     FRAME_INSERT(0x00);
     
 
-    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
-    FRAME_INSERT(4);    /* length */
-    FRAME_INSERT('Q');  /* SSID */
-    FRAME_INSERT('L');  /* SSID */
-    FRAME_INSERT('a');  /* SSID */
-    FRAME_INSERT('n');  /* SSID */
+    i=add_ssid(buf,i,wifi_channel);
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
@@ -391,14 +388,10 @@ mac80211_frame *Esp32_WLAN_create_association_response(void)
     FRAME_INSERT(0x01);
     FRAME_INSERT(0xc0);
 
-    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
-    FRAME_INSERT(4);    /* length */
-    FRAME_INSERT('Q');  /* SSID */
-    FRAME_INSERT('L');  /* SSID */
-    FRAME_INSERT('a');  /* SSID */
-    FRAME_INSERT('n');  /* SSID */
+    i=add_ssid(buf,i,wifi_channel);
 
-FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
+
+    FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
     
 
@@ -507,89 +500,6 @@ mac80211_frame *Esp32_WLAN_create_data_packet(Esp32WifiState *s,
     frame->frame_length = IEEE80211_HEADER_SIZE + size;
 
     return frame;
-}
-
-int Esp32_WLAN_dumpFrame(mac80211_frame *frame, int frame_len, char *filename)
-{
-    int result = 1;
-    int i = 0, j;
-    unsigned char buf[56];
-    unsigned int frame_total_length = frame_len + 16;
-    unsigned char *l = (unsigned char *)&frame_total_length;
-
-    /* Wireshark header */
-    buf[i++] = 0xd4;
-    buf[i++] = 0xc3;
-    buf[i++] = 0xb2;
-    buf[i++] = 0xa1;
-    buf[i++] = 0x02;
-    buf[i++] = 0x00;
-    buf[i++] = 0x04;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x60;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x7f;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0xd1;
-    buf[i++] = 0x75;
-    buf[i++] = 0x5d;
-    buf[i++] = 0x46;
-    buf[i++] = 0x76;
-    buf[i++] = 0x8b;
-    buf[i++] = 0x06;
-    buf[i++] = 0x00;
-
-    /* total frame length */
-    for (j = 0; j < 4; buf[i++] = l[j++]) {
-    }
-    /* captured frame length */
-    for (j = 0; j < 4; buf[i++] = l[j++]) {
-    }
-
-    /* Radiotap header */
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x10;
-    buf[i++] = 0x00;
-    buf[i++] = 0x0e;
-    buf[i++] = 0x18;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x10;
-    buf[i++] = 0x02;
-    buf[i++] = 0x94;
-    buf[i++] = 0x09;
-    buf[i++] = 0xa0;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x26;
-
-    FILE *fp;
-    fp = fopen(filename, "w");
-    if (fp) {
-        result = 0;
-        if (fwrite(buf, 1, sizeof(buf), fp) != sizeof(buf)) {
-            result = 1;
-        }
-        if (fwrite(frame, 1, frame_len, fp) != frame_len) {
-            result = 1;
-        }
-        fclose(fp);
-    }
-
-    return result;
 }
 
 #endif /* CONFIG_WIN32 */

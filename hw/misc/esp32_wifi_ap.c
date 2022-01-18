@@ -21,17 +21,22 @@
 
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 
+int beacon_channel=1;
+
 static void Esp32_WLAN_beacon_timer(void *opaque)
 {
     struct mac80211_frame *frame;
     Esp32WifiState *s = (Esp32WifiState *)opaque;
 
-    frame = Esp32_WLAN_create_beacon_frame();
+    frame = Esp32_WLAN_create_beacon_frame(beacon_channel);
+    if(beacon_channel==1) beacon_channel=6;
+    else if(beacon_channel==6) beacon_channel=8;
+    else if(beacon_channel==8) beacon_channel=1;
     if (frame) {
         Esp32_WLAN_init_frame(s, frame);
         Esp32_WLAN_insert_frame(s, frame);
     }
-    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 1000000000);
+    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 33000000000);
 }
 
 static void Esp32_WLAN_inject_timer(void *opaque)

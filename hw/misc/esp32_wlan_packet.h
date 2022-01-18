@@ -40,7 +40,7 @@ void Esp32_WLAN_init_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 
 int Esp32_WLAN_dumpFrame(struct mac80211_frame *frame, int frame_len, char *filename);
 
-struct mac80211_frame *Esp32_WLAN_create_beacon_frame(void);
+struct mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel);
 struct mac80211_frame *Esp32_WLAN_create_probe_response(void);
 struct mac80211_frame *Esp32_WLAN_create_authentication(void);
 struct mac80211_frame *Esp32_WLAN_create_deauthentication(void);
