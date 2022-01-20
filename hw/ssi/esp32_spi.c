@@ -402,6 +402,7 @@ static void esp32_spi_reset(DeviceState *dev)
     s->pin_reg = 0x6;
     s->user1_reg = FIELD_DP32(0, SPI_USER1, ADDR_BITLEN, 23);
     s->user1_reg = FIELD_DP32(s->user1_reg, SPI_USER1, DUMMY_CYCLELEN, 7);
+    s->user2_reg = 0x70000000;
     s->status_reg = 0;
 }
 
