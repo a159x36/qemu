@@ -32,17 +32,19 @@ static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
         case 132:
             r=0;
             break;
-        case 3144:
-        case 3148:
+        case A_WIFI_DMA_INT_STATUS:
+        case A_WIFI_DMA_INT_CLR:
             r=s->event;
             break;
         case 3272:
-            r=31;
+            r=1;
             break;
-        case 3364:
+        case A_WIFI_DMA_STATUS:
             r=1;
             break;
     }
+    printf("esp32_wifi_read %ld=%d\n",addr,r);
+
     return r;
 }
 static void setEvent(Esp32WifiState *s,int e) {
@@ -50,30 +52,34 @@ static void setEvent(Esp32WifiState *s,int e) {
     qemu_set_irq(s->irq, 1);
 }
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
+
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
+     printf("esp32_wifi_write %ld=%ld\n",addr, value);
+
     switch (addr) {
         case 36:
             if(65536 & value) s->rxInterface = 0;
+         //   else s->rxInterface = 1;
             break;
         case 44:
             if(65536 & value) s->rxInterface = 1;
             break;
-        case 136:
+        case A_WIFI_DMA_INLINK:
             s->rxBuffer = value;
             break;
-        case 3148:
+        case A_WIFI_DMA_INT_CLR:
             s->event &= ~value;
             if(s->event==0)
                 qemu_set_irq(s->irq, 0);
             break;
-        case 3360:
-        case 3352:
-        case 3344:
-        case 3336:
-        case 3328:
-            if (3221225472 & value) {                        
+        case A_WIFI_DMA_OUTLINK:
+//        case 3352:
+//        case 3344:
+//        case 3336:
+//        case 3328:
+            if (value & 0xc0000000) {                        
                 // a DMA transfer
                 int data = 0;
                 int len;
