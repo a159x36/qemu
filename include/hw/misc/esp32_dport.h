@@ -71,7 +71,6 @@ typedef struct Esp32DportState {
     uint32_t cpuperiod_sel;
     uint32_t cache_ill_trap_en_reg;
     uint32_t slave_spi_config_reg;
-    uint32_t mem[1024];
 
 } Esp32DportState;
 

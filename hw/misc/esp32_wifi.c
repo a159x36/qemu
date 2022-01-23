@@ -29,21 +29,19 @@ static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
     uint32_t r = s->mem[addr/4];
     
     switch(addr) {
-        case 132:
+        case A_WIFI_DMA_IN_STATUS:
             r=0;
             break;
         case A_WIFI_DMA_INT_STATUS:
         case A_WIFI_DMA_INT_CLR:
             r=s->event;
             break;
-        case 3272:
-            r=1;
-            break;
-        case A_WIFI_DMA_STATUS:
+        case A_WIFI_STATUS:
+        case A_WIFI_DMA_OUT_STATUS:
             r=1;
             break;
     }
-    printf("esp32_wifi_read %ld=%d\n",addr,r);
+    // printf("esp32_wifi_read %ld=%d\n",addr,r);
 
     return r;
 }
@@ -56,16 +54,16 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
-     printf("esp32_wifi_write %ld=%ld\n",addr, value);
+    // printf("esp32_wifi_write %ld=%ld\n",addr, value);
 
     switch (addr) {
-        case 36:
-            if(65536 & value) s->rxInterface = 0;
+    //    case 36:
+    //        if(value & (1<<16)) s->rxInterface = 0;
          //   else s->rxInterface = 1;
-            break;
-        case 44:
-            if(65536 & value) s->rxInterface = 1;
-            break;
+    //        break;
+    //    case 44:
+    //        if(value & (1<<16)) s->rxInterface = 1;
+    //        break;
         case A_WIFI_DMA_INLINK:
             s->rxBuffer = value;
             break;
@@ -109,7 +107,7 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
 // frame from ap to esp32
 void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {    
     if(s->rxBuffer==0) {
-        setEvent(s,16777252);
+        //setEvent(s,0x1000024);
         return;
     }
     uint8_t header[28+length];
@@ -134,7 +132,7 @@ void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {
     v[0]=(v[0]&0xFF000FFF)|(length<<12)|0x40000000;
     address_space_write(&address_space_memory, addr, MEMTXATTRS_UNSPECIFIED,v,4);
     s->rxBuffer=v[2];
-    setEvent(s,16777252);
+    setEvent(s,0x1000024);
 }
 
 static void esp32_wifi_timer_cb(void *opaque) {

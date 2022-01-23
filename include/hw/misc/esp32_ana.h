@@ -12,7 +12,6 @@ typedef struct Esp32AnaState {
     SysBusDevice parent_obj;
     MemoryRegion iomem;
     uint32_t mem[1024];
-    int wifi_channel;
 } Esp32AnaState;
 
 

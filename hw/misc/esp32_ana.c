@@ -1,13 +1,3 @@
-/*
- * ESP32 Random Number Generator peripheral
- *
- * Copyright (c) 2019 Espressif Systems (Shanghai) Co. Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 or
- * (at your option) any later version.
- */
-
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "qemu/error-report.h"
@@ -31,18 +21,14 @@ static uint64_t esp32_ana_read(void *opaque, hwaddr addr, unsigned int size)
         case 196: r=4294967295;
         break;
     }
- //   printf("esp32_ana_read %ld=%d %d\n",addr,r, size);
     return r;
 }
 
 static void esp32_ana_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32AnaState *s = ESP32_ANA(opaque);
-  //  printf("esp32_ana_write %ld %ld\n",addr, value);
     if(addr==196) {
-        s->wifi_channel=value&255;
-     //   printf("wifi channel=%d\n",(int)(value&255));
-        switch(s->wifi_channel) {
+        switch(value&255) {
             case 36: wifi_channel=1; break;
             case 51: wifi_channel=2; break;
             case 66: wifi_channel=3; break;

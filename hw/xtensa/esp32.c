@@ -483,7 +483,7 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
  //   esp32_soc_add_periph_device(sys_mem, &s->fe2, DR_REG_FE2_BASE);
 
     qdev_realize(DEVICE(&s->phya), &s->periph_bus, &error_fatal);
-    esp32_soc_add_periph_device(sys_mem, &s->phya, 0x3ff74000);
+    esp32_soc_add_periph_device(sys_mem, &s->phya, DR_REG_PHYA_BASE);
 
     qdev_realize(DEVICE(&s->flash_enc), &s->periph_bus, &error_abort);
     esp32_soc_add_periph_device(sys_mem, &s->flash_enc, DR_REG_SPI_ENCRYPT_BASE);
@@ -504,13 +504,12 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.apbctrl", DR_REG_APB_CTRL_BASE, 0x1000,0);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s0", DR_REG_I2S_BASE, 0x1000,0);
     esp32_soc_add_unimp_device(sys_mem, "esp32.i2s1", DR_REG_I2S1_BASE, 0x1000,0);
-  //  esp32_soc_add_unimp_device(sys_mem, "esp32.fe", DR_REG_FE_BASE, 0x1000);
+ //   esp32_soc_add_unimp_device(sys_mem, "esp32.fe", DR_REG_FE_BASE, 0x1000, -1);
     esp32_soc_add_unimp_device(sys_mem, "esp32.fe2", DR_REG_FE2_BASE, 0x1000, -1);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", 0x3ff71000, 0x1000,-1);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phya", 0x3ff75000, 0x1000,0);
-//   esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_rf", 0x3FF45000, 0x3000);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi", 0x3FF5c000  , 0x1000,-1);
-    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi1", 0x3FF5d000 , 0x1000,-1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phy", DR_REG_PHY_BASE, 0x1000,-1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.chipv7_phyb", DR_REG_WDEV_BASE, 0x1000,0);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi", DR_REG_NRX_BASE  , 0x1000,-1);
+    esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi1", DR_REG_BB_BASE , 0x1000,-1);
     qemu_register_reset((QEMUResetHandler*) esp32_soc_reset, dev);
 
     /* st7789v is attached to SPI2 and SPI2 so the both HSPI and VSPI will work, 
@@ -724,7 +723,6 @@ static void esp32_machine_init_openeth(Esp32SocState *ss)
 
     for(int i=0;i<nb_nics;i++) {
         const char* type_openeth = "open_eth";
-       // const char* type_wifi = "esp32_wifi";
         NICInfo *nd = &nd_table[i];
         if (nd->used && nd->model && strcmp(nd->model, type_openeth) == 0) {
             DeviceState* open_eth_dev = qdev_new(type_openeth);
@@ -741,7 +739,6 @@ static void esp32_machine_init_openeth(Esp32SocState *ss)
             qdev_set_nic_properties(DEVICE(&ss->wifi), nd);
             sbd = SYS_BUS_DEVICE(DEVICE(&ss->wifi));
             sysbus_realize_and_unref(sbd, &error_fatal);
-//            qdev_realize(DEVICE(&ss->wifi), &ss->periph_bus, &error_fatal);
             esp32_soc_add_periph_device(sys_mem, &ss->wifi, DR_REG_WIFI_BASE);
             sysbus_connect_irq(SYS_BUS_DEVICE(&ss->wifi), 0,
                            qdev_get_gpio_in(DEVICE(&ss->intmatrix), ETS_WIFI_MAC_INTR_SOURCE));

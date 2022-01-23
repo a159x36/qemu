@@ -1,12 +1,3 @@
-/*
- * ESP32 Random Number Generator peripheral
- *
- * Copyright (c) 2019 Espressif Systems (Shanghai) Co. Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 or
- * (at your option) any later version.
- */
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
@@ -24,14 +15,12 @@ static uint64_t esp32_fe_read(void *opaque, hwaddr addr, unsigned int size)
     r=s->mem[addr/4];
     if(addr==124)
         r=0xffffffff;
-  //  printf("esp32_fe_read %ld=%d\n",addr,r);
     return r;
 }
 
 static void esp32_fe_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
   Esp32FeState *s = ESP32_FE(opaque);
-//  printf("esp32_fe_write %ld=%ld\n",addr, value);
   s->mem[addr/4]=(uint32_t)value;
 }
 

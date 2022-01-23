@@ -47,9 +47,12 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 void Esp32_WLAN_setup_ap(DeviceState *dev,Esp32WifiState *s);
 void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length);
 
+REG32(WIFI_DMA_IN_STATUS, 0x84);
 REG32(WIFI_DMA_INLINK, 0x88);
 REG32(WIFI_DMA_INT_STATUS, 0xc48);
 REG32(WIFI_DMA_INT_CLR, 0xc4c);
+REG32(WIFI_STATUS, 0xcc8);
 REG32(WIFI_DMA_OUTLINK, 0xd20);
-REG32(WIFI_DMA_STATUS, 0xd24);
+REG32(WIFI_DMA_OUT_STATUS, 0xd24);
+
 
