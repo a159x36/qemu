@@ -24,6 +24,7 @@
  * Modifications:
  *  2008-February-24  Clemens Kolbitsch :
  *                                  New implementation based on ne2000.c
+ *  18/1/22 Martin JOhnson : Modified for esp32 wifi emilation
  *
  */
 

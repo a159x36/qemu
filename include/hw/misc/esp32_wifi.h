@@ -17,7 +17,6 @@ typedef struct Esp32WifiState {
     MemoryRegion iomem;
     int event;
     qemu_irq irq;
-    QEMUTimer wifi_timer;
     uint32_t mem[1024];
     int rxInterface;
     int rxBuffer;
@@ -34,11 +33,11 @@ typedef struct Esp32WifiState {
     // various timers
     QEMUTimer *beacon_timer;
     QEMUTimer *inject_timer;
-    uint8_t ipaddr[4];              // currently unused
-    uint8_t macaddr[6];             // mac address
+    uint8_t ipaddr[4];              
+    uint8_t macaddr[6];             
 
-    uint8_t ap_ipaddr[4];               // currently unused
-    uint8_t ap_macaddr[6];              // mac address
+    uint8_t ap_ipaddr[4];               
+    uint8_t ap_macaddr[6];              
 
 } Esp32WifiState;
 

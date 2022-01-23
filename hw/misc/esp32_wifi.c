@@ -1,13 +1,3 @@
-/*
- * ESP32 Random Number Generator peripheral
- *
- * Copyright (c) 2019 Espressif Systems (Shanghai) Co. Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 or
- * (at your option) any later version.
- */
-
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "qemu/error-report.h"
@@ -41,8 +31,6 @@ static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
             r=1;
             break;
     }
-    // printf("esp32_wifi_read %ld=%d\n",addr,r);
-
     return r;
 }
 static void setEvent(Esp32WifiState *s,int e) {
@@ -54,16 +42,8 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
-    // printf("esp32_wifi_write %ld=%ld\n",addr, value);
 
     switch (addr) {
-    //    case 36:
-    //        if(value & (1<<16)) s->rxInterface = 0;
-         //   else s->rxInterface = 1;
-    //        break;
-    //    case 44:
-    //        if(value & (1<<16)) s->rxInterface = 1;
-    //        break;
         case A_WIFI_DMA_INLINK:
             s->rxBuffer = value;
             break;
@@ -73,10 +53,6 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                 qemu_set_irq(s->irq, 0);
             break;
         case A_WIFI_DMA_OUTLINK:
-//        case 3352:
-//        case 3344:
-//        case 3336:
-//        case 3328:
             if (value & 0xc0000000) {                        
                 // a DMA transfer
                 int data = 0;
@@ -107,7 +83,6 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
 // frame from ap to esp32
 void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {    
     if(s->rxBuffer==0) {
-        //setEvent(s,0x1000024);
         return;
     }
     uint8_t header[28+length];
@@ -135,12 +110,6 @@ void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {
     setEvent(s,0x1000024);
 }
 
-static void esp32_wifi_timer_cb(void *opaque) {
-    Esp32WifiState *s = ESP32_WIFI(opaque);
-    
-    setEvent(s,128);
-}
-
 static const MemoryRegionOps esp32_wifi_ops = {
     .read =  esp32_wifi_read,
     .write = esp32_wifi_write,
@@ -157,7 +126,6 @@ static void esp32_wifi_realize(DeviceState *dev, Error **errp)
                           TYPE_ESP32_WIFI, 0x1000);
     sysbus_init_mmio(sbd, &s->iomem);
     sysbus_init_irq(sbd, &s->irq);
-    timer_init_ns(&s->wifi_timer, QEMU_CLOCK_VIRTUAL, esp32_wifi_timer_cb, s);
     memset(s->mem,0,sizeof(s->mem));
     Esp32_WLAN_setup_ap(dev, s);
     

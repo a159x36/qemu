@@ -16,7 +16,7 @@ static uint64_t esp32_ana_read(void *opaque, hwaddr addr, unsigned int size)
     switch(addr) {
         case 4: r=4261412863;
         break;
-        case 68: 
+        case 68:
         case 76:
         case 196: r=4294967295;
         break;

@@ -24,7 +24,6 @@ struct UnimplementedDeviceState {
     char *name;
     uint64_t size;
     uint64_t default_value;
-    uint32_t *mem;
 };
 
 /**

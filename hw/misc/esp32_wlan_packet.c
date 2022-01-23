@@ -24,18 +24,11 @@
  * Modifications:
  *  2008-February-24  Clemens Kolbitsch :
  *                                  New implementation based on ne2000.c
- *
+ *  18/1/22 Martin JOhnson : Modified for esp32 wifi emilation
  */
 
 #include "qemu/osdep.h"
 
-#if defined(CONFIG_WIN32)
-#warning("not compiled for Windows host")
-#else
-
-//#include "hw.h"
-//#include "pci/pci.h"
-//#include "pc.h"
 #include "net/net.h"
 
 #include <sys/shm.h>
@@ -53,7 +46,7 @@
 
 #define FRAME_INSERT(_8bit_data)    buf[i++] = _8bit_data
 
-const char *ssid_table[]={"ERR","My Wifi",0,0,0,0,"Public Wifi",0,"Scanlan65_new"};
+const char *ssid_table[]={"ERR","My Wifi",0,0,0,0,"Public Wifi",0,"Massey_Wifi"};
 
 static int insertCRC(mac80211_frame *frame, uint32_t frame_length)
 {
@@ -122,35 +115,26 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
      *  - Beacon Interval
      *  - Capability Information
      */
+    frame->beacon_info.timestamp=qemu_clock_get_ns(QEMU_CLOCK_REALTIME)/1000;
+    frame->beacon_info.interval=1000;
+    frame->beacon_info.capability=1;
     /*
-    FRAME_INSERT(0x8d);
-    FRAME_INSERT(0x61);
-    FRAME_INSERT(0xa5);
-    FRAME_INSERT(0x18);
-    FRAME_INSERT(0x00);
-    FRAME_INSERT(0x00);
-    */
-    
+    buf[i++] = 0x8d;
+    buf[i++] = 0x61;
+    buf[i++] = 0xa5;
+    buf[i++] = 0x18;
+    buf[i++] = 0x00;
+    buf[i++] = 0x00;
+
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x64);
     FRAME_INSERT(0x00);
     FRAME_INSERT(0x01);
     FRAME_INSERT(0x00);
-
-//    FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
- //   FRAME_INSERT(4);   
-    /*
-    const char *ssid=ssid_table[wifi_channel];
-    int len=strlen(ssid);
-    FRAME_INSERT(len);   
-    memcpy((char *)buf+i,ssid,len);
-    i+=len;
     */
-//    FRAME_INSERT('Q');  /* SSID */
-//    FRAME_INSERT('L');  /* SSID */
-//    FRAME_INSERT('a');  /* SSID */
-//    FRAME_INSERT('n');  /* SSID */
+    i=12;
+
     i=add_ssid(buf,i,channel);
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
@@ -167,6 +151,13 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
     FRAME_INSERT(channel);
+
+    FRAME_INSERT(IEEE80211_BEACON_PARAM_TIM);
+    FRAME_INSERT(4);
+    FRAME_INSERT(1);
+    FRAME_INSERT(3);
+    FRAME_INSERT(0);
+    FRAME_INSERT(0);
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
 }
@@ -189,46 +180,16 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
     frame->frame_control.flags = 0;
     frame->duration_id = 314;
     frame->sequence_control.fragment_number = 0;
-    /*
-    frame->address_4[0]=0;
-    frame->address_4[1]=0;
-    frame->address_4[2]=0;
-    frame->address_4[3]=0;
-    frame->address_4[4]=0;
-    frame->address_4[5]=0;
-    */
-    i = 0;
+    
+    
     buf = (unsigned char *)frame->data_and_fcs;
 
-    /*
-     * Fixed params... typical AP params (12 byte)
-     *
-     * They include
-     *  - Timestamp
-     *  - Beacon Interval
-     *  - Capability Information
-     */
+    frame->beacon_info.timestamp=qemu_clock_get_ns(QEMU_CLOCK_REALTIME)/1000;
+    frame->beacon_info.interval=1000;
+    frame->beacon_info.capability=1;
     
-    buf[i++] = 0x8d;
-    buf[i++] = 0x61;
-    buf[i++] = 0xa5;
-    buf[i++] = 0x18;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    /*
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
-    buf[i++] = 0x64;
-    buf[i++] = 0x00;
-    buf[i++] = 0x01;
-    buf[i++] = 0x00;
-    */
-    buf[i++] = 0;
-    buf[i++] = 0;
-    buf[i++] = 100;
-    buf[i++] = 0;
-    buf[i++] = 33;
-    buf[i++] = 4;
+    
+    i=12;
 
     i=add_ssid(buf,i,wifi_channel);
     
@@ -501,5 +462,3 @@ mac80211_frame *Esp32_WLAN_create_data_packet(Esp32WifiState *s,
 
     return frame;
 }
-
-#endif /* CONFIG_WIN32 */

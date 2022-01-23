@@ -24,6 +24,7 @@
  * Modifications:
  *  2008-February-24  Clemens Kolbitsch :
  *                                  New implementation based on ne2000.c
+ *  18/1/22 Martin JOhnson : Modified for esp32 wifi emilation
  *
  */
 
@@ -40,18 +41,10 @@
 #include <netdb.h>
 
 
-/*
- * debug Esp32_WLAN card
- *
- * i.e. show all access traces
- */
-#define DEBUG_Esp32_WLAN 1
-#define DEBUG_Esp32_AP_WLAN 1
+//#define DEBUG_Esp32_WLAN
 
-#define PCI_FREQUENCY 33000000L
-
-#if defined (DEBUG_Esp32_WLAN)
-#  define DEBUG_PRINT(x) \
+#ifdef DEBUG_Esp32_WLAN
+#define DEBUG_PRINT_AP(x) \
     do { \
         struct timeval __tt; \
         gettimeofday(&__tt, NULL); \
@@ -59,13 +52,7 @@
         printf x ;\
     } while (0)
 #else
-#  define DEBUG_PRINT(x)
-#endif
-
-#if defined (DEBUG_Esp32_AP_WLAN)
-#  define DEBUG_PRINT_AP(x) printf x ;
-#else
-#  define DEBUG_PRINT_AP(x)
+#define DEBUG_PRINT_AP(x)
 #endif
 
 
@@ -94,9 +81,17 @@
 #define IEEE80211_BEACON_PARAM_RATES            0x01
 #define IEEE80211_BEACON_PARAM_CHANNEL          0x03
 #define IEEE80211_BEACON_PARAM_EXTENDED_RATES       0x32
+#define IEEE80211_BEACON_PARAM_TIM          0x05
 
 
 #define IEEE80211_HEADER_SIZE               24
+
+
+typedef struct beacon_info_t {
+    uint64_t timestamp;
+    uint16_t interval;
+    uint16_t capability;
+} QEMU_PACKED beacon_info_t;
 
 typedef struct mac80211_frame {
     struct mac80211_frame_control {
@@ -141,11 +136,11 @@ typedef struct mac80211_frame {
         unsigned    sequence_number     : 12;
     } __attribute__((packed)) sequence_control;
 
-    // WHEN IS THIS USED??
-    //uint8_t      address_4[6];
-
     // variable length, 2312 byte plus 4 byte frame-checksum
-    uint8_t     data_and_fcs[2316];
+    union {
+        uint8_t     data_and_fcs[2316];
+        beacon_info_t beacon_info;
+    };
 
     unsigned int frame_length;
     struct mac80211_frame *next_frame;
