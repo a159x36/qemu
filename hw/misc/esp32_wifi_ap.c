@@ -31,13 +31,13 @@
 #include "net/net.h"
 #include "qemu/timer.h"
 
-#include <sys/shm.h>
-#include <sys/socket.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/mman.h>
-#include <netinet/in.h>
-#include <netdb.h>
+//#include <sys/shm.h>
+//#include <sys/socket.h>
+//#include <sys/ipc.h>
+//#include <sys/sem.h>
+//#include <sys/mman.h>
+//#include <netinet/in.h>
+//#include <netdb.h>
 #include "hw/misc/esp32_wifi.h"
 #include "esp32_wlan.h"
 #include "esp32_wlan_packet.h"
@@ -239,10 +239,11 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
     unsigned long ethernet_frame_size;
     unsigned char ethernet_frame[1518];
 
- //   printf("Handle Frame %d %d\n",frame->frame_control.type,frame->frame_control.sub_type);
+    //printf("Handle Frame %d %d\n",frame->frame_control.type,frame->frame_control.sub_type);
 
     if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
             (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_PROBE_REQ)) {
+        DEBUG_PRINT_AP(("Received probe request!\n"));
         reply = Esp32_WLAN_create_probe_response();
     } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_AUTHENTICATION)) {

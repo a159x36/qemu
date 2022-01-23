@@ -30,7 +30,7 @@
 #include "qemu/osdep.h"
 
 #include "net/net.h"
-
+/*
 #include <sys/shm.h>
 #include <sys/socket.h>
 #include <sys/ipc.h>
@@ -38,6 +38,7 @@
 #include <sys/mman.h>
 #include <netinet/in.h>
 #include <netdb.h>
+*/
 
 
 #include "esp32_wlan.h"
@@ -47,7 +48,7 @@
 #define FRAME_INSERT(_8bit_data)    buf[i++] = _8bit_data
 
 const char *ssid_table[]={"ERR","My Wifi",0,0,0,0,"Public Wifi",0,"Massey_Wifi"};
-
+/*
 static int insertCRC(mac80211_frame *frame, uint32_t frame_length)
 {
     unsigned long crc;
@@ -58,6 +59,7 @@ static int insertCRC(mac80211_frame *frame, uint32_t frame_length)
 
     return frame_length + 4;
 }
+*/
 
 static int add_ssid(unsigned char *buf,int i,int channel) {
     FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
@@ -78,7 +80,7 @@ void Esp32_WLAN_init_frame(Esp32WifiState *s, mac80211_frame *frame)
     memcpy(frame->source_address, s->ap_macaddr, 6);
     memcpy(frame->bssid_address, s->ap_macaddr, 6);
 
-    frame->frame_length = insertCRC(frame, frame->frame_length)-4;
+    //frame->frame_length = insertCRC(frame, frame->frame_length)-4;
 }
 
 

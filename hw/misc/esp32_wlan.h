@@ -32,15 +32,6 @@
 #define esp32_wlan_h 1
 
 
-#include <sys/shm.h>
-#include <sys/socket.h>
-#include <sys/ipc.h>
-#include <sys/sem.h>
-#include <sys/mman.h>
-#include <netinet/in.h>
-#include <netdb.h>
-
-
 //#define DEBUG_Esp32_WLAN
 
 #ifdef DEBUG_Esp32_WLAN
@@ -87,34 +78,24 @@
 #define IEEE80211_HEADER_SIZE               24
 
 
+#define PACK __attribute__((gcc_struct,packed,aligned(1)))
+
 typedef struct beacon_info_t {
     uint64_t timestamp;
     uint16_t interval;
     uint16_t capability;
-} QEMU_PACKED beacon_info_t;
+}  PACK beacon_info_t;
+
+
 
 typedef struct mac80211_frame {
     struct mac80211_frame_control {
         unsigned    protocol_version    : 2;
         unsigned    type            : 2;
         unsigned    sub_type        : 4;
-
-        union {
-            struct mac80211_frame_control_flags {
-                unsigned    to_ds       : 1;
-                unsigned    from_ds     : 1;
-                unsigned    more_frag   : 1;
-                unsigned    retry       : 1;
-                unsigned    power_mng   : 1;
-                unsigned    more_data   : 1;
-                unsigned    wep     : 1;
-                unsigned    order       : 1;
-            } __attribute__((packed)) frame_control_flags;
-            uint8_t flags;
-        };
-
-    } __attribute__((packed)) frame_control;
-    uint16_t    duration_id;
+        unsigned  flags:8;
+    } PACK frame_control;
+    uint16_t  duration_id;
 
     union {
         uint8_t     address_1[6];
@@ -134,7 +115,7 @@ typedef struct mac80211_frame {
     struct mac80211_sequence_control {
         unsigned    fragment_number     : 4;
         unsigned    sequence_number     : 12;
-    } __attribute__((packed)) sequence_control;
+    } PACK sequence_control;
 
     // variable length, 2312 byte plus 4 byte frame-checksum
     union {
@@ -145,7 +126,7 @@ typedef struct mac80211_frame {
     unsigned int frame_length;
     struct mac80211_frame *next_frame;
 
-} QEMU_PACKED mac80211_frame;
+}  PACK mac80211_frame;
 
 
 

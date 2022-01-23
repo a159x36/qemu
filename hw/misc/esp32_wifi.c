@@ -31,6 +31,8 @@ static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
             r=1;
             break;
     }
+//    printf("esp32_wifi_read %ld=%d\n",addr,r);
+
     return r;
 }
 static void setEvent(Esp32WifiState *s,int e) {
@@ -42,6 +44,7 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
+//    printf("esp32_wifi_write %ld=%ld\n",addr, value);
 
     switch (addr) {
         case A_WIFI_DMA_INLINK:
@@ -97,7 +100,11 @@ void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {
         header[28+i]=*frame++;
     }
     length+=28;
-
+/*
+    for(int i=0;i<length;i++) {
+        printf("%d: %d\n",i,header[i]);
+    }
+    */
     int v[3];
     int data;
     int addr=s->rxBuffer;
