@@ -124,11 +124,16 @@ typedef struct mac80211_frame {
     };
 
     unsigned int frame_length;
+    int signal_strength;
     struct mac80211_frame *next_frame;
 
 }  PACK mac80211_frame;
 
-
+typedef struct access_point_info {
+    const char *ssid;
+    int channel;
+    int sigstrength;
+} access_point_info;
 
 #define Esp32_WLAN__STATE_NOT_AUTHENTICATED   0
 #define Esp32_WLAN__STATE_AUTHENTICATED   1

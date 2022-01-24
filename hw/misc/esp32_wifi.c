@@ -12,6 +12,8 @@
 #include "esp32_wlan_packet.h"
 #include "hw/qdev-properties.h"
 
+#define DEBUG 0
+
 static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
 {
     
@@ -24,19 +26,20 @@ static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
             break;
         case A_WIFI_DMA_INT_STATUS:
         case A_WIFI_DMA_INT_CLR:
-            r=s->event;
+            r=s->raw_interrupt;
             break;
         case A_WIFI_STATUS:
         case A_WIFI_DMA_OUT_STATUS:
             r=1;
             break;
     }
-//    printf("esp32_wifi_read %ld=%d\n",addr,r);
+
+    if(DEBUG) printf("esp32_wifi_read %ld=%d\n",addr,r);
 
     return r;
 }
-static void setEvent(Esp32WifiState *s,int e) {
-    s->event |= e;
+static void set_interrupt(Esp32WifiState *s,int e) {
+    s->raw_interrupt |= e;
     qemu_set_irq(s->irq, 1);
 }
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
@@ -44,20 +47,20 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
-//    printf("esp32_wifi_write %ld=%ld\n",addr, value);
+    if(DEBUG) printf("esp32_wifi_write %ld=%ld\n",addr, value);
 
     switch (addr) {
         case A_WIFI_DMA_INLINK:
             s->rxBuffer = value;
             break;
         case A_WIFI_DMA_INT_CLR:
-            s->event &= ~value;
-            if(s->event==0)
+            s->raw_interrupt &= ~value;
+            if(s->raw_interrupt==0)
                 qemu_set_irq(s->irq, 0);
             break;
         case A_WIFI_DMA_OUTLINK:
             if (value & 0xc0000000) {                        
-                // a DMA transfer
+                // do a DMA transfer to the hardware from esp32 memory
                 int data = 0;
                 int len;
                 uint8_t *buffer=malloc(sizeof(struct mac80211_frame));
@@ -75,36 +78,32 @@ static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                 // frame from esp32 to ap
                 frame->frame_length=len-4;
                 frame->next_frame=0;
-                if(wifi_channel==AP_WIFI_CHANNEL || (wifi_channel==AP_WIFI_CHANNEL1) || (wifi_channel==AP_WIFI_CHANNEL2))
-                    Esp32_WLAN_handle_frame(s, frame);
+             //   if(wifi_channel==AP_WIFI_CHANNEL || (wifi_channel==AP_WIFI_CHANNEL1) || (wifi_channel==AP_WIFI_CHANNEL2))
+                Esp32_WLAN_handle_frame(s, frame);
                 free(buffer);
-                setEvent(s,128);
+                set_interrupt(s,128);
             }
     }
     s->mem[addr/4]=value;
 }
 // frame from ap to esp32
-void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {    
+void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length, int signal_strength) {    
     if(s->rxBuffer==0) {
         return;
     }
     uint8_t header[28+length];
     for(int i=0;i<sizeof(header);i++) header[i]=0;
-    header[0]=(-66+(rand()%10)+96) & 255;
+    header[0]=(signal_strength+(rand()%10)+96) & 255;
     header[1]=11;
     header[2]=177;
-    header[3]=s->rxInterface ? 32 : 16;
+    header[3]=16;
     header[24]=(length + 4)&0xff;
     header[25]=((length + 4)>>8)&15;
     for(int i=0;i<length;i++) {
         header[28+i]=*frame++;
     }
     length+=28;
-/*
-    for(int i=0;i<length;i++) {
-        printf("%d: %d\n",i,header[i]);
-    }
-    */
+    // do a DMA transfer from the hardware to esp32 memory
     int v[3];
     int data;
     int addr=s->rxBuffer;
@@ -114,7 +113,7 @@ void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length) {
     v[0]=(v[0]&0xFF000FFF)|(length<<12)|0x40000000;
     address_space_write(&address_space_memory, addr, MEMTXATTRS_UNSPECIFIED,v,4);
     s->rxBuffer=v[2];
-    setEvent(s,0x1000024);
+    set_interrupt(s,0x1000024);
 }
 
 static const MemoryRegionOps esp32_wifi_ops = {

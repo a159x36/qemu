@@ -65,7 +65,6 @@ int main(int argc, char*argv[]) {
     int x=0;
     fwrite(&x, 1, 1, fout);
     fclose(fout);
-    system(cmd);
-
+    int v=system(cmd);
     return 0;
 }

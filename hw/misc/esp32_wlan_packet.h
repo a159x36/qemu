@@ -41,11 +41,11 @@ void Esp32_WLAN_init_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 
 int Esp32_WLAN_dumpFrame(struct mac80211_frame *frame, int frame_len, char *filename);
 
-struct mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel);
-struct mac80211_frame *Esp32_WLAN_create_probe_response(void);
-struct mac80211_frame *Esp32_WLAN_create_authentication(void);
+struct mac80211_frame *Esp32_WLAN_create_beacon_frame(access_point_info *ap);
+struct mac80211_frame *Esp32_WLAN_create_probe_response(access_point_info *ap);
+struct mac80211_frame *Esp32_WLAN_create_authentication(access_point_info *ap);
 struct mac80211_frame *Esp32_WLAN_create_deauthentication(void);
-struct mac80211_frame *Esp32_WLAN_create_association_response(void);
+struct mac80211_frame *Esp32_WLAN_create_association_response(access_point_info *ap);
 struct mac80211_frame *Esp32_WLAN_create_disassociation(void);
 struct mac80211_frame *Esp32_WLAN_create_data_reply(Esp32WifiState *s, struct mac80211_frame *incoming);
 struct mac80211_frame *Esp32_WLAN_create_data_packet(Esp32WifiState *s, const uint8_t *buf, int size);

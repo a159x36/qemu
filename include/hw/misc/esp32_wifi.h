@@ -15,10 +15,9 @@
 typedef struct Esp32WifiState {
     SysBusDevice parent_obj;
     MemoryRegion iomem;
-    int event;
+    int raw_interrupt;
     qemu_irq irq;
     uint32_t mem[1024];
-    int rxInterface;
     int rxBuffer;
     uint32_t ap_state;
     int inject_queue_size;
@@ -44,7 +43,7 @@ typedef struct Esp32WifiState {
 
 void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 void Esp32_WLAN_setup_ap(DeviceState *dev,Esp32WifiState *s);
-void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length);
+void Esp32_sendFrame(Esp32WifiState *s, uint8_t *frame,int length, int signal_strength);
 
 REG32(WIFI_DMA_IN_STATUS, 0x84);
 REG32(WIFI_DMA_INLINK, 0x88);

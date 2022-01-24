@@ -28,22 +28,10 @@ static void esp32_ana_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32AnaState *s = ESP32_ANA(opaque);
     if(addr==196) {
-        switch(value&255) {
-            case 36: wifi_channel=1; break;
-            case 51: wifi_channel=2; break;
-            case 66: wifi_channel=3; break;
-            case 81: wifi_channel=4; break;
-            case 96: wifi_channel=5; break;
-            case 111: wifi_channel=6; break;
-            case 126: wifi_channel=7; break;
-            case 141: wifi_channel=8; break;
-            case 156: wifi_channel=9; break;
-            case 171: wifi_channel=10; break;
-            case 186: wifi_channel=11; break;
-            case 201: wifi_channel=12; break;
-            case 216: wifi_channel=13; break;
-            case 252: wifi_channel=14; break;
-        }
+        
+    //    printf("wifi channel:%d\n",(int)(value&255));
+        int v=value&255;
+        if((v%10)==4) wifi_channel=(v/10)-1;
     }
     s->mem[addr/4]=value;
 }

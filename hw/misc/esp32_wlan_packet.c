@@ -42,30 +42,15 @@
 
 
 #include "esp32_wlan.h"
-#include "esp32_wlan_crc32.h"
 #include "esp32_wlan_packet.h"
 
 #define FRAME_INSERT(_8bit_data)    buf[i++] = _8bit_data
 
-const char *ssid_table[]={"ERR","My Wifi",0,0,0,0,"Public Wifi",0,"Massey_Wifi"};
-/*
-static int insertCRC(mac80211_frame *frame, uint32_t frame_length)
-{
-    unsigned long crc;
-    unsigned char *fcs = (unsigned char *)frame;
 
-    crc = crc32_ccitt(fcs, frame_length);
-    memcpy(&fcs[frame_length], &crc, 4);
-
-    return frame_length + 4;
-}
-*/
-
-static int add_ssid(unsigned char *buf,int i,int channel) {
+static int add_ssid(unsigned char *buf,int i,const char *ssid) {
     FRAME_INSERT(IEEE80211_BEACON_PARAM_SSID);
-    const char *ssid=ssid_table[channel];
     int len=strlen(ssid);
-    FRAME_INSERT(len);    /* length */
+    FRAME_INSERT(len);   
     memcpy((char *)buf+i,ssid,len);
     return len+i;
 }
@@ -79,12 +64,10 @@ void Esp32_WLAN_init_frame(Esp32WifiState *s, mac80211_frame *frame)
     frame->sequence_control.sequence_number = s->inject_sequence_number++;
     memcpy(frame->source_address, s->ap_macaddr, 6);
     memcpy(frame->bssid_address, s->ap_macaddr, 6);
-
-    //frame->frame_length = insertCRC(frame, frame->frame_length)-4;
 }
 
 
-mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
+mac80211_frame *Esp32_WLAN_create_beacon_frame(access_point_info *ap)
 {
     unsigned int i;
     unsigned char *buf;
@@ -96,6 +79,7 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
     }
 
     frame->next_frame = NULL;
+    frame->signal_strength=ap->sigstrength;
     frame->frame_control.protocol_version = 0;
     frame->frame_control.type = IEEE80211_TYPE_MGT;
     frame->frame_control.sub_type = IEEE80211_TYPE_MGT_SUBTYPE_BEACON;
@@ -109,50 +93,39 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
     i = 0;
     buf = (unsigned char *)frame->data_and_fcs;
 
-    /*
-     * Fixed params... typical AP params (12 byte)
-     *
-     * They include
-     *  - Timestamp
-     *  - Beacon Interval
-     *  - Capability Information
-     */
+    
     frame->beacon_info.timestamp=qemu_clock_get_ns(QEMU_CLOCK_REALTIME)/1000;
     frame->beacon_info.interval=1000;
     frame->beacon_info.capability=1;
-    /*
-    buf[i++] = 0x8d;
-    buf[i++] = 0x61;
-    buf[i++] = 0xa5;
-    buf[i++] = 0x18;
-    buf[i++] = 0x00;
-    buf[i++] = 0x00;
 
-    FRAME_INSERT(0x00);
-    FRAME_INSERT(0x00);
-    FRAME_INSERT(0x64);
-    FRAME_INSERT(0x00);
-    FRAME_INSERT(0x01);
-    FRAME_INSERT(0x00);
-    */
     i=12;
-
-    i=add_ssid(buf,i,channel);
+    i=add_ssid(buf,i,ap->ssid);
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
+    
     FRAME_INSERT(0x82);
     FRAME_INSERT(0x84);
     FRAME_INSERT(0x8b);
     FRAME_INSERT(0x96);
     FRAME_INSERT(0x24);
-    FRAME_INSERT(0x30);
+    FRAME_INSERT(0x36);
     FRAME_INSERT(0x48);
     FRAME_INSERT(0x6c);
+    /*
+     FRAME_INSERT(140);
+    FRAME_INSERT(18);
+    FRAME_INSERT(152);
+    FRAME_INSERT(36);
+    FRAME_INSERT(176);
+    FRAME_INSERT(72);
+    FRAME_INSERT(96);
+    FRAME_INSERT(108);
+    */
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-    FRAME_INSERT(channel);
+    FRAME_INSERT(ap->channel);
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_TIM);
     FRAME_INSERT(4);
@@ -164,7 +137,7 @@ mac80211_frame *Esp32_WLAN_create_beacon_frame(int channel)
     return frame;
 }
 
-mac80211_frame *Esp32_WLAN_create_probe_response(void)
+mac80211_frame *Esp32_WLAN_create_probe_response(access_point_info *ap)
 {
     unsigned int i;
     unsigned char *buf;
@@ -193,40 +166,29 @@ mac80211_frame *Esp32_WLAN_create_probe_response(void)
     
     i=12;
 
-    i=add_ssid(buf,i,wifi_channel);
+    i=add_ssid(buf,i,ap->ssid);
     
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
-    /*
+    
     FRAME_INSERT(0x82);
     FRAME_INSERT(0x84);
     FRAME_INSERT(0x8b);
     FRAME_INSERT(0x96);
     FRAME_INSERT(0x24);
-    FRAME_INSERT(0x30);
+    FRAME_INSERT(0x36);
     FRAME_INSERT(0x48);
     FRAME_INSERT(0x6c);
-    */
-
-    FRAME_INSERT(140);
-    FRAME_INSERT(18);
-    FRAME_INSERT(152);
-    FRAME_INSERT(36);
-    FRAME_INSERT(176);
-    FRAME_INSERT(72);
-    FRAME_INSERT(96);
-    FRAME_INSERT(108);
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_CHANNEL);
     FRAME_INSERT(1);    /* length */
-//    FRAME_INSERT(AP_WIFI_CHANNEL);
-    FRAME_INSERT(wifi_channel);
+    FRAME_INSERT(ap->channel);
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
 }
 
-mac80211_frame *Esp32_WLAN_create_authentication(void)
+mac80211_frame *Esp32_WLAN_create_authentication(access_point_info *ap)
 {
     unsigned int i;
     unsigned char *buf;
@@ -265,7 +227,7 @@ mac80211_frame *Esp32_WLAN_create_authentication(void)
     FRAME_INSERT(0x00);
     
 
-    i=add_ssid(buf,i,wifi_channel);
+    i=add_ssid(buf,i,ap->ssid);
 
     frame->frame_length = IEEE80211_HEADER_SIZE + i;
     return frame;
@@ -304,7 +266,7 @@ mac80211_frame *Esp32_WLAN_create_deauthentication(void)
     return frame;
 }
 
-mac80211_frame *Esp32_WLAN_create_association_response(void)
+mac80211_frame *Esp32_WLAN_create_association_response(access_point_info *ap)
 {
     unsigned int i;
     unsigned char *buf;
@@ -351,21 +313,20 @@ mac80211_frame *Esp32_WLAN_create_association_response(void)
     FRAME_INSERT(0x01);
     FRAME_INSERT(0xc0);
 
-    i=add_ssid(buf,i,wifi_channel);
+    i=add_ssid(buf,i,ap->ssid);
 
 
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    /* length */
     
-
-    FRAME_INSERT(140);
-    FRAME_INSERT(18);
-    FRAME_INSERT(152);
-    FRAME_INSERT(36);
-    FRAME_INSERT(176);
-    FRAME_INSERT(72);
-    FRAME_INSERT(96);
-    FRAME_INSERT(108);
+FRAME_INSERT(0x82);
+    FRAME_INSERT(0x84);
+    FRAME_INSERT(0x8b);
+    FRAME_INSERT(0x96);
+    FRAME_INSERT(0x24);
+    FRAME_INSERT(0x36);
+    FRAME_INSERT(0x48);
+    FRAME_INSERT(0x6c);
     /*
     FRAME_INSERT(IEEE80211_BEACON_PARAM_RATES);
     FRAME_INSERT(8);    

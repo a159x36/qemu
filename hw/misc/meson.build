@@ -115,8 +115,7 @@ softmmu_ss.add(when: 'CONFIG_XTENSA_ESP32', if_true: files(
   'esp32_fe.c',
   'esp32_ramdev.c',
   'esp32_wifi_ap.c',
-  'esp32_wlan_packet.c',
-  'esp32_wlan_crc32.c'
+  'esp32_wlan_packet.c'
 ))
 
 if 'CONFIG_GCRYPT' in config_host

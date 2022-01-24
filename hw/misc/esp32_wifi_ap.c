@@ -44,55 +44,45 @@
 
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame);
 
-int beacon_channel=1;
+int beacon_ap=0;
 
+access_point_info access_points[]={
+    {"Open Wifi",4,-40},
+    {"MasseyWifi",6,-30},
+    {"Home Wifi",7,-70},
+    {"My Wifi",8,-75},
+    {"New Wifi",10,-90},
+};
 
+int nb_aps=sizeof(access_points)/sizeof(access_point_info);
 
 static void Esp32_WLAN_beacon_timer(void *opaque)
 {
     struct mac80211_frame *frame;
     Esp32WifiState *s = (Esp32WifiState *)opaque;
 
-    frame = Esp32_WLAN_create_beacon_frame(beacon_channel);
-    if(beacon_channel==1) beacon_channel=6;
-    else if(beacon_channel==6) beacon_channel=8;
-    else if(beacon_channel==8) beacon_channel=1;
+    frame = Esp32_WLAN_create_beacon_frame(&access_points[beacon_ap]);
+    beacon_ap=(beacon_ap+1)%nb_aps;
     if (frame) {
         Esp32_WLAN_init_frame(s, frame);
         Esp32_WLAN_insert_frame(s, frame);
     }
-    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 330000000);
+    timer_mod(s->beacon_timer, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) + 50000000);
 }
 
 static void Esp32_WLAN_inject_timer(void *opaque)
 {
     Esp32WifiState *s = (Esp32WifiState *)opaque;
     struct mac80211_frame *frame;
-   // printf("Inject Timer %d\n",s->inject_queue_size);
-
 
     frame = s->inject_queue;
     if (frame) {
         // remove from queue
         s->inject_queue_size--;
         s->inject_queue = frame->next_frame;
+        Esp32_sendFrame(s, (void *)frame, frame->frame_length,frame->signal_strength);
+        free(frame);
     }
-
-    if (!frame) {
-        goto timer_done;
-    }
-
-  //  if (s->receive_queue_address == 0) {
-        // we drop the packet
-  //  } else {
-     //   Esp32_WLAN_handleRxBuffer(s, frame, frame->frame_length);
-        Esp32_sendFrame(s, (void *)frame, frame->frame_length);
-   // }
-   // printf("free frame%p\n",frame);
-    free(frame);
-
-timer_done:
-
     if (s->inject_queue_size > 0) {
         // there are more packets... schedule
         // the timer for sending them as well
@@ -106,9 +96,6 @@ timer_done:
 }
 
 
-/*
- * PCI and EEPROM definitions
- */
 
 void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame)
 {
@@ -122,7 +109,6 @@ void Esp32_WLAN_insert_frame(Esp32WifiState *s, struct mac80211_frame *frame)
         while (i_frame->next_frame) {
             i_frame = i_frame->next_frame;
         }
-
         i_frame->next_frame = frame;
     }
 
@@ -145,7 +131,6 @@ static _Bool Esp32_WLAN_can_receive(NetClientState *ncs)
         // to the access point
         return 0;
     }
-
     if (s->inject_queue_size > Esp32_WLAN__MAX_INJECT_QUEUE_SIZE) {
         // overload, please give me some time...
         return 0;
@@ -159,7 +144,6 @@ static ssize_t Esp32_WLAN_receive(NetClientState *ncs,
 {
     Esp32WifiState *s = qemu_get_nic_opaque(ncs);
     struct mac80211_frame *frame;
-  //  printf("WLAN receive\n");
     if (!Esp32_WLAN_can_receive(ncs)) {
         // this should not happen, but in
         // case it does, let's simply drop
@@ -170,7 +154,6 @@ static ssize_t Esp32_WLAN_receive(NetClientState *ncs,
     if (!s) {
         return -1;
     }
-
     /*
      * A 802.3 packet comes from the qemu network. The
      * access points turns it into a 802.11 frame and
@@ -239,110 +222,118 @@ void Esp32_WLAN_handle_frame(Esp32WifiState *s, struct mac80211_frame *frame)
     unsigned long ethernet_frame_size;
     unsigned char ethernet_frame[1518];
 
-    //printf("Handle Frame %d %d\n",frame->frame_control.type,frame->frame_control.sub_type);
+    //printf("Handle Frame %d %d %d\n",frame->frame_control.type,frame->frame_control.sub_type,wifi_channel);
+    access_point_info *ap_info=0;
+    for(int i=0;i<nb_aps;i++)
+        if(access_points[i].channel==wifi_channel)
+            ap_info=&access_points[i];
+    if(ap_info!=0) {
 
-    if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
-            (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_PROBE_REQ)) {
-        DEBUG_PRINT_AP(("Received probe request!\n"));
-        reply = Esp32_WLAN_create_probe_response();
-    } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
-               (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_AUTHENTICATION)) {
-        DEBUG_PRINT_AP(("Received authentication!\n"));
-        reply = Esp32_WLAN_create_authentication();
+        if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
+                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_PROBE_REQ)) {
+            DEBUG_PRINT_AP(("Received probe request!\n"));
+            reply = Esp32_WLAN_create_probe_response(ap_info);
+        } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
+                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_AUTHENTICATION)) {
+            DEBUG_PRINT_AP(("Received authentication!\n"));
+            reply = Esp32_WLAN_create_authentication(ap_info);
 
-        if (s->ap_state == Esp32_WLAN__STATE_NOT_AUTHENTICATED) {
-            // if everything is going according to
-            // the state machine, let's jump into the
-            // next state
-            s->ap_state = Esp32_WLAN__STATE_AUTHENTICATED;
+            if (s->ap_state == Esp32_WLAN__STATE_NOT_AUTHENTICATED) {
+                // if everything is going according to
+                // the state machine, let's jump into the
+                // next state
+                s->ap_state = Esp32_WLAN__STATE_AUTHENTICATED;
+            }
+        } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
+                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_DEAUTHENTICATION)) {
+            DEBUG_PRINT_AP(("Received deauthentication!\n"));
+        //   reply = Esp32_WLAN_create_deauthentication();
+
+            // some systems (e.g. WinXP) won't send a
+            // disassociation. just believe that the
+            // deauthentication is ok... nothing bad
+            // can happen anyways ;-)
+            s->ap_state = Esp32_WLAN__STATE_NOT_AUTHENTICATED;
+        } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
+                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_ASSOCIATION_REQ)) {
+            DEBUG_PRINT_AP(("Received association request!\n"));
+            reply = Esp32_WLAN_create_association_response(ap_info);
+
+            if (s->ap_state == Esp32_WLAN__STATE_AUTHENTICATED) {
+                // if everything is going according to
+                // the state machine, let's jump into the
+                // next state
+                s->ap_state = Esp32_WLAN__STATE_ASSOCIATED;
+            }
+        } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
+                (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_DISASSOCIATION)) {
+            DEBUG_PRINT_AP(("Received disassociation!\n"));
+            reply = Esp32_WLAN_create_disassociation();
+
+            if (s->ap_state == Esp32_WLAN__STATE_ASSOCIATED) {
+                // if everything is going according to
+                // the state machine, let's jump into the
+                // next state
+                s->ap_state = Esp32_WLAN__STATE_AUTHENTICATED;
+            }
+        } else if ((frame->frame_control.type == IEEE80211_TYPE_DATA) &&
+                (frame->frame_control.sub_type == IEEE80211_TYPE_DATA_SUBTYPE_DATA) &&
+                (s->ap_state == Esp32_WLAN__STATE_ASSOCIATED)) {
+            /*
+            * The access point uses the 802.11 frame
+            * and sends a 802.3 frame into the network...
+            * This packet is then understandable by
+            * qemu-slirp
+            *
+            * If we ever want the access point to offer
+            * some services, it can be added here!!
+            */
+            // ethernet header type
+            ethernet_frame[12] = frame->data_and_fcs[6];
+            ethernet_frame[13] = frame->data_and_fcs[7];
+
+            // the new originator of the packet is
+            // the access point
+            memcpy(&ethernet_frame[6], s->ap_macaddr, 6);
+
+            if (ethernet_frame[12] == 0x08 && ethernet_frame[13] == 0x06) {
+                // for arp request, we use a broadcast
+                memset(&ethernet_frame[0], 0xff, 6);
+            } else {
+                // otherwise we forward the packet to
+                // where it really belongs
+                memcpy(&ethernet_frame[0], frame->destination_address, 6);
+            }
+
+            // add packet content
+            ethernet_frame_size = frame->frame_length - 24 - 4 - 8;
+
+            // for some reason, the packet is 22 bytes too small (??)
+            ethernet_frame_size += 22;
+            if (ethernet_frame_size > sizeof(ethernet_frame)) {
+                ethernet_frame_size = sizeof(ethernet_frame);
+            }
+            memcpy(&ethernet_frame[14], &frame->data_and_fcs[8], ethernet_frame_size);
+
+            // add size of ethernet header
+            ethernet_frame_size += 14;
+
+            /*
+            * Send 802.3 frame
+            */
+            qemu_send_packet(qemu_get_queue(s->nic), ethernet_frame, ethernet_frame_size);
+            
         }
-    } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
-               (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_DEAUTHENTICATION)) {
-        DEBUG_PRINT_AP(("Received deauthentication!\n"));
-     //   reply = Esp32_WLAN_create_deauthentication();
-
-        // some systems (e.g. WinXP) won't send a
-        // disassociation. just believe that the
-        // deauthentication is ok... nothing bad
-        // can happen anyways ;-)
-        s->ap_state = Esp32_WLAN__STATE_NOT_AUTHENTICATED;
-    } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
-               (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_ASSOCIATION_REQ)) {
-        DEBUG_PRINT_AP(("Received association request!\n"));
-        reply = Esp32_WLAN_create_association_response();
-
-        if (s->ap_state == Esp32_WLAN__STATE_AUTHENTICATED) {
-            // if everything is going according to
-            // the state machine, let's jump into the
-            // next state
-            s->ap_state = Esp32_WLAN__STATE_ASSOCIATED;
-        }
-    } else if ((frame->frame_control.type == IEEE80211_TYPE_MGT) &&
-               (frame->frame_control.sub_type == IEEE80211_TYPE_MGT_SUBTYPE_DISASSOCIATION)) {
-        DEBUG_PRINT_AP(("Received disassociation!\n"));
-        reply = Esp32_WLAN_create_disassociation();
-
-        if (s->ap_state == Esp32_WLAN__STATE_ASSOCIATED) {
-            // if everything is going according to
-            // the state machine, let's jump into the
-            // next state
-            s->ap_state = Esp32_WLAN__STATE_AUTHENTICATED;
-        }
-    } else if ((frame->frame_control.type == IEEE80211_TYPE_DATA) &&
-               (frame->frame_control.sub_type == IEEE80211_TYPE_DATA_SUBTYPE_DATA) &&
-               (s->ap_state == Esp32_WLAN__STATE_ASSOCIATED)) {
-        /*
-         * The access point uses the 802.11 frame
-         * and sends a 802.3 frame into the network...
-         * This packet is then understandable by
-         * qemu-slirp
-         *
-         * If we ever want the access point to offer
-         * some services, it can be added here!!
-         */
-        // ethernet header type
-        ethernet_frame[12] = frame->data_and_fcs[6];
-        ethernet_frame[13] = frame->data_and_fcs[7];
-
-        // the new originator of the packet is
-        // the access point
-        memcpy(&ethernet_frame[6], s->ap_macaddr, 6);
-
-        if (ethernet_frame[12] == 0x08 && ethernet_frame[13] == 0x06) {
-            // for arp request, we use a broadcast
-            memset(&ethernet_frame[0], 0xff, 6);
-        } else {
-            // otherwise we forward the packet to
-            // where it really belongs
-            memcpy(&ethernet_frame[0], frame->destination_address, 6);
-        }
-
-        // add packet content
-        ethernet_frame_size = frame->frame_length - 24 - 4 - 8;
-
-        // for some reason, the packet is 22 bytes too small (??)
-        ethernet_frame_size += 22;
-        if (ethernet_frame_size > sizeof(ethernet_frame)) {
-            ethernet_frame_size = sizeof(ethernet_frame);
-        }
-        memcpy(&ethernet_frame[14], &frame->data_and_fcs[8], ethernet_frame_size);
-
-        // add size of ethernet header
-        ethernet_frame_size += 14;
-
-        /*
-        * Send 802.3 frame
-        */
-        qemu_send_packet(qemu_get_queue(s->nic), ethernet_frame, ethernet_frame_size);
-        
-    }
-
-    if (reply) {
+        if (reply) {
      //   printf("Handle Frame Reply\n");
-        memcpy(reply->destination_address, frame->source_address, 6);
-        Esp32_WLAN_init_frame(s, reply);
-        Esp32_WLAN_insert_frame(s, reply);
+            reply->signal_strength=ap_info->sigstrength;
+            memcpy(reply->destination_address, frame->source_address, 6);
+            Esp32_WLAN_init_frame(s, reply);
+            Esp32_WLAN_insert_frame(s, reply);
+        }
     }
+
+    
 
 }
 
