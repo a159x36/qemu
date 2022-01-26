@@ -63,7 +63,7 @@ static uint32_t rgbled_transfer(SSISlave *dev, uint32_t data)
    // if((data&0x8000)==0 && (data&0x80000000)==0) {
        if(t1>17 || t0>17) {
         printf("end\n");
-        s->current_led=0;
+       // s->current_led=0;
     }
 
     if(s->current_bit==24) {

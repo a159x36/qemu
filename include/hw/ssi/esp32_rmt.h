@@ -21,8 +21,10 @@ typedef struct Esp32RmtState {
     uint32_t int_raw;
     uint32_t int_en;
     uint32_t txlim;
+    uint32_t apb_conf;
     int sent;
     uint32_t data[ESP32_RMT_BUF_WORDS];
+    QEMUTimer rmt_timer;
 } Esp32RmtState;
 
 
@@ -34,6 +36,7 @@ REG32(RMT_INT_ENA, 0xa8)
 REG32(RMT_INT_CLR, 0xac)
 REG32(RMT_DATA, 0x800)
 REG32(RMT_TX_LIM,0xd0)
+REG32(RMT_APB_CONF,0xf0)
 
 
 
