@@ -443,6 +443,11 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
                            qdev_get_gpio_in(intmatrix_dev, ETS_SPI0_INTR_SOURCE + i));
     }
 
+    qdev_realize(DEVICE(&s->rmt), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->rmt, DR_REG_RMT_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->rmt), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_RMT_INTR_SOURCE));
+
     for (int i = 0; i < ESP32_I2C_COUNT; i++) {
         const hwaddr i2c_base[] = {
             DR_REG_I2C_EXT_BASE, DR_REG_I2C1_EXT_BASE
@@ -516,6 +521,9 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     they share a single console*/
     DeviceState *disp=ssi_create_slave(s->spi[2].spi, "st7789v");
     DeviceState *disp1=ssi_create_slave(s->spi[3].spi, "st7789v");
+
+    DeviceState *disp3=ssi_create_slave(s->rmt.rmt, "rgbled");
+    printf("%p\n",disp3);
     qemu_irq cmd_irq=qemu_irq_split(
                 qdev_get_gpio_in_named(disp, "cmd", 0),
                 qdev_get_gpio_in_named(disp1, "cmd", 0));
@@ -614,6 +622,8 @@ static void esp32_soc_init(Object *obj)
     object_initialize_child(obj, "sens", &s->sens, TYPE_ESP32_SENS);
 
     object_initialize_child(obj, "ana", &s->ana, TYPE_ESP32_ANA);
+
+    object_initialize_child(obj, "rmt", &s->rmt, TYPE_ESP32_RMT);
 
     for(int i=0;i<nb_nics;i++)
         if (nd_table[i].used && nd_table[i].model && strcmp(nd_table[i].model, TYPE_ESP32_WIFI) == 0)

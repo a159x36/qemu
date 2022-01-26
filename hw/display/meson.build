@@ -23,7 +23,7 @@ softmmu_ss.add(when: 'CONFIG_VGA_ISA_MM', if_true: files('vga-isa-mm.c'))
 softmmu_ss.add(when: 'CONFIG_VMWARE_VGA', if_true: files('vmware_vga.c'))
 softmmu_ss.add(when: 'CONFIG_BOCHS_DISPLAY', if_true: files('bochs-display.c'))
 
-softmmu_ss.add(when: 'CONFIG_XTENSA_ESP32', if_true: files('st7789v.c','ttgo_board_skin.c'))
+softmmu_ss.add(when: 'CONFIG_XTENSA_ESP32', if_true: files('st7789v.c','ttgo_board_skin.c','rgb_led.c'))
 
 softmmu_ss.add(when: 'CONFIG_BLIZZARD', if_true: files('blizzard.c'))
 softmmu_ss.add(when: 'CONFIG_EXYNOS4', if_true: files('exynos4210_fimd.c'))

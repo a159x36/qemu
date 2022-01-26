@@ -18,6 +18,7 @@
 #include "hw/ssi/esp32_spi.h"
 #include "hw/misc/esp32_sens.h"
 #include "hw/misc/esp32_ana.h"
+#include "hw/ssi/esp32_rmt.h"
 #include "hw/misc/esp32_wifi.h"
 #include "hw/misc/esp32_fe.h"
 #include "hw/misc/esp32_ramdev.h"
@@ -49,6 +50,7 @@ typedef struct Esp32SocState {
     Esp32EfuseState efuse;
     Esp32SensState sens;
     Esp32AnaState ana;
+    Esp32RmtState rmt;
     Esp32WifiState wifi;
     Esp32FeState fe;
     Esp32RamdevState phya;
