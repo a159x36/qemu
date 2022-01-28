@@ -11,6 +11,8 @@
         "esp32_wlan_packet.h": "c",
         "array": "c",
         "string": "c",
-        "string_view": "c"
+        "string_view": "c",
+        "input.h": "c",
+        "cmath": "c"
     }
 }

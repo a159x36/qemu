@@ -33,9 +33,20 @@ static void update_irq(Esp32RmtState *s) {
 #define ESP32_RMT_REG_SIZE    0x1000
 
 //static void esp32_rmt_cs_set(Esp32RmtState *s, int value);
+static void send_data(Esp32RmtState *s, int channel);
 
 static void esp32_rmt_timer_cb(void *opaque) {
     Esp32RmtState *s = ESP32_RMT(opaque);
+    
+    /*
+    if((s->conf1[0] & 1) && (s->int_raw  & (1<<24)) && !(s->int_raw  & 1)) {
+            send_data(s,0);
+            if( (s->int_raw  & (1<<24)) )
+                timer_mod_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + s->txlim*1250);
+    }
+    */
+    qemu_irq_raise(s->irq);
+    /*
     int channel=0;
        BusState *b = BUS(s->rmt);
                 BusChild *ch = QTAILQ_FIRST(&b->children);
@@ -64,7 +75,7 @@ printf("sedn\n");
                 timer_mod_ns(&s->rmt_timer,
                         ns_now + ns_to_timeout);
    // }
-    
+    */
 }
 
 //static void esp32_rmt_do_command(Esp32RmtState* state, uint32_t cmd_reg);
@@ -99,15 +110,34 @@ static uint64_t esp32_rmt_read(void *opaque, hwaddr addr, unsigned int size)
         r = s->apb_conf;
         break;
     }
-    printf("rmt read %ld %ld\n",addr,r);
+  //  printf("rmt read %ld %ld\n",addr,r);
     return r;
+}
+
+// send txlim data values, stop if a value is 0
+// set the correct raw int for tx_end or tx_thr_event
+static void send_data(Esp32RmtState *s, int channel) {
+    BusState *b = BUS(s->rmt);
+    BusChild *ch = QTAILQ_FIRST(&b->children);
+    SSISlave *slave = SSI_SLAVE(ch->child);
+    SSISlaveClass *ssc = SSI_SLAVE_GET_CLASS(slave);
+    for (int i = 0; i < s->txlim ; i++) {    
+        int v=s->data[(i+s->sent)%64+channel*64]; 
+        if(v==0) {
+            s->int_raw|=(1<<(channel*3));
+            return;
+        }
+        ssc->transfer(slave,v);
+    }
+    s->sent+=(s->txlim)%64;
+    s->int_raw|=(1<<(channel+24));
 }
 
 static void esp32_rmt_write(void *opaque, hwaddr addr,
                        uint64_t value, unsigned int size)
 {
     Esp32RmtState *s = ESP32_RMT(opaque);
-    printf("rmt write %ld %ld\n",addr,value);
+    //printf("rmt write %ld %ld\n",addr,value);
     int channel;
     switch (addr) {
     case A_RMT_CH0CONF0 ...  A_RMT_CH0CONF0+8*16:
@@ -115,43 +145,14 @@ static void esp32_rmt_write(void *opaque, hwaddr addr,
         if((addr & 0x4)==0) {
             s->conf0[channel]=value;
         } else {
-         //   int old=s->conf1[channel];
             s->conf1[channel]=value;
             if((value & 0x8)) {
-         //       s->sent=0;
+                //s->sent=0;
             }
-            if((value & 0x1)) {//} && !(old & 1)) {
-                 BusState *b = BUS(s->rmt);
-                BusChild *ch = QTAILQ_FIRST(&b->children);
-                SSISlave *slave = SSI_SLAVE(ch->child);
-                SSISlaveClass *ssc = SSI_SLAVE_GET_CLASS(slave);
-                printf("sedn %d\n",s->sent);
-                for (int i = 0; i < s->txlim ; i++) {    
-                    int v=s->data[(i+s->sent)%64+channel*64];
-//                     printf("send %d %d\n",v,i+channel*64);
-
-                    if(v==0) {
-//                        printf("done\n");
-                        break;
-                    }
-                    ssc->transfer(slave,v);
-                }
-                s->sent+=s->txlim;
- //               printf("Start Transfer");
-                // start transfer
-           //     uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-            
-             
-               
-/*
-                uint64_t ns_to_timeout = 10000000 * 25;  // about 75fps, same a real hw
-                if(timer_expired(&s->rmt_timer,ns_now))
-                timer_mod_ns(&s->rmt_timer,
-                                            ns_now + ns_to_timeout);
-                                            */
-           //     s->int_raw|=(1<<(channel+24));
-                s->int_raw|=(1<<(channel*3));
-                qemu_irq_raise(s->irq);
+            if((value & 0x1)) {
+                send_data(s,channel);
+                timer_mod_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + s->txlim*1250);
+              //  qemu_irq_raise(s->irq);
             }
         }
 
@@ -169,18 +170,14 @@ static void esp32_rmt_write(void *opaque, hwaddr addr,
         s->int_raw&=(~value);
         if(s->int_raw==0)
             qemu_irq_lower(s->irq);
+            
+        if((s->conf1[0] & 1) && (value & (1<<24)) && !(value & 1)) {
+            send_data(s,0);
+            timer_mod_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + s->txlim*1250);
+        }
         break;
     case A_RMT_DATA ... A_RMT_DATA+(ESP32_RMT_BUF_WORDS-1)* sizeof(uint32_t):
         s->data[(addr-A_RMT_DATA)/sizeof(uint32_t)]=value;
- //       printf("store %ld %ld\n",(addr-A_RMT_DATA)/sizeof(uint32_t),value);
- /*
-  BusState *b = BUS(s->rmt);
-                BusChild *ch = QTAILQ_FIRST(&b->children);
-                SSISlave *slave = SSI_SLAVE(ch->child);
-                SSISlaveClass *ssc = SSI_SLAVE_GET_CLASS(slave);
- ssc->transfer(slave,value);
- */
- 
         break;
     case A_RMT_APB_CONF:
         s->apb_conf=value;
@@ -197,7 +194,11 @@ static const MemoryRegionOps esp32_rmt_ops = {
 
 static void esp32_rmt_reset(DeviceState *dev)
 {
-  //  Esp32RmtState *s = ESP32_RMT(dev);
+    Esp32RmtState *s = ESP32_RMT(dev);
+    s->int_raw=0;
+    s->sent=0;
+    qemu_irq_lower(s->irq);
+    timer_del(&s->rmt_timer);
     /*
     s->pin_reg = 0x6;
     s->user1_reg = FIELD_DP32(0, RMT_USER1, ADDR_BITLEN, 23);

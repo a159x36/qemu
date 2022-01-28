@@ -439,7 +439,7 @@ static void *tcg_cpu_thread_fn(void *arg)
                  *
                  * cpu->halted should ensure we sleep in wait_io_event
                  */
-                g_assert(cpu->halted);
+//                g_assert(cpu->halted);
                 break;
             case EXCP_ATOMIC:
                 qemu_mutex_unlock_iothread();
