@@ -20,7 +20,7 @@ typedef struct Esp32RmtState {
     uint32_t conf1[8];
     uint32_t int_raw;
     uint32_t int_en;
-    uint32_t txlim;
+    uint32_t txlim[8];
     uint32_t apb_conf;
     int sent;
     uint32_t data[ESP32_RMT_BUF_WORDS];

@@ -1406,6 +1406,12 @@ static void gd_accel_zoom_in(void *opaque)
     gtk_menu_item_activate(GTK_MENU_ITEM(s->zoom_in_item));
 }
 
+static void gd_accel_detach(void *opaque)
+{
+    GtkDisplayState *s = opaque;
+    gtk_menu_item_activate(GTK_MENU_ITEM(s->untabify_item));
+}
+
 static void gd_menu_zoom_out(GtkMenuItem *item, void *opaque)
 {
     GtkDisplayState *s = opaque;
@@ -2156,6 +2162,11 @@ static GtkWidget *gd_create_menu_view(GtkDisplayState *s)
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->show_tabs_item);
 
     s->untabify_item = gtk_menu_item_new_with_mnemonic(_("Detach Tab"));
+    gtk_accel_group_connect(s->accel_group, GDK_KEY_d, HOTKEY_MODIFIERS, 0,
+            g_cclosure_new_swap(G_CALLBACK(gd_accel_detach), s, NULL));
+    gtk_accel_label_set_accel(
+            GTK_ACCEL_LABEL(gtk_bin_get_child(GTK_BIN(s->untabify_item))),
+            GDK_KEY_d, HOTKEY_MODIFIERS);
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->untabify_item);
 
     s->show_menubar_item = gtk_check_menu_item_new_with_mnemonic(

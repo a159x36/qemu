@@ -181,6 +181,10 @@ static void esp32_soc_reset(DeviceState *dev)
         if (s->eth) {
             device_cold_reset(s->eth);
         }
+        if (s->wifi_dev) {
+            device_cold_reset(s->wifi_dev);
+        }
+        device_cold_reset(DEVICE(&s->rmt));
     }
     if (s->requested_reset & ESP32_SOC_RESET_PROCPU) {
         xtensa_select_static_vectors(&s->cpu[0].env, s->rtc_cntl.stat_vector_sel[0]);
@@ -522,8 +526,9 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     DeviceState *disp=ssi_create_slave(s->spi[2].spi, "st7789v");
     DeviceState *disp1=ssi_create_slave(s->spi[3].spi, "st7789v");
 
-    DeviceState *disp3=ssi_create_slave(s->rmt.rmt, "rgbled");
-    printf("%p\n",disp3);
+    //DeviceState *disp3=
+    ssi_create_slave(s->rmt.rmt, "rgbled");
+    //printf("%p\n",disp3);
     qemu_irq cmd_irq=qemu_irq_split(
                 qdev_get_gpio_in_named(disp, "cmd", 0),
                 qdev_get_gpio_in_named(disp1, "cmd", 0));
