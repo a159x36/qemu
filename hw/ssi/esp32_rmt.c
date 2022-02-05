@@ -22,6 +22,9 @@
 
 #define ESP32_RMT_REG_SIZE    0x1000
 
+static void restart_timer(Esp32RmtState *s, int channel) {
+    timer_mod_anticipate_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)+1250*s->txlim[channel]);
+}
 // send txlim data values, stop if a value is 0
 // set the correct raw int for tx_end or tx_thr_event
 static void send_data(Esp32RmtState *s, int channel) {
@@ -30,8 +33,9 @@ static void send_data(Esp32RmtState *s, int channel) {
     BusChild *ch = QTAILQ_FIRST(&b->children);
     SSISlave *slave = SSI_SLAVE(ch->child);
     SSISlaveClass *ssc = SSI_SLAVE_GET_CLASS(slave);
+    // don't send data when interrupt hasn't been handled 
     if(s->int_raw & (1<<(channel+24) | (1<<(channel*3)))) {
-        timer_mod_anticipate_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)+1250*s->txlim[channel]);
+        restart_timer(s,channel);
         return;
     }
     for (int i = 0; i < s->txlim[channel] ; i++) {    
@@ -50,13 +54,11 @@ static void send_data(Esp32RmtState *s, int channel) {
     s->int_raw|=(1<<(channel+24));
     if(s->int_en & (1<<(channel+24)))
         qemu_irq_raise(s->irq);
-    timer_mod_anticipate_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)+12500*s->txlim[channel]);
-    
+    restart_timer(s,channel);
 }
 
 static void esp32_rmt_timer_cb(void *opaque) {
     Esp32RmtState *s = ESP32_RMT(opaque);
-    
     // send data for any enabled channels 
     for(int i=0;i<8;i++) {
         if((s->conf1[i] & 1)) {
@@ -120,7 +122,7 @@ static void esp32_rmt_write(void *opaque, hwaddr addr,
             }
             if((value & 0x1)) {
                 // start timer to send data
-                timer_mod_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + s->txlim[channel]*1250);
+                restart_timer(s,channel);
             }
         }
         break;

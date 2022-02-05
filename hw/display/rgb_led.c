@@ -37,12 +37,9 @@ struct  RgbledState {
 #define TYPE_RGBLED "rgbled"
 OBJECT_DECLARE_SIMPLE_TYPE(RgbledState, RGBLED)
 
-typedef struct { uint8_t r; uint8_t g; uint8_t b; uint8_t a;} pixel;
-
 static int min(uint32_t a,uint32_t b) {
     return a<b?a:b;
 }
-
 
 static void draw_led(RgbledState *s, int x, int y, int r,int g, int b) {
     float m=sqrtf(r*r+g*g+b*b);
@@ -50,7 +47,7 @@ static void draw_led(RgbledState *s, int x, int y, int r,int g, int b) {
     b=min(255*b/m,255);
     r=min(255*r/m,255);
     g=min(255*g/m,255);  
-    float radius=2.0f+(m/128.0f);
+    float radius=1.8f+(m/100.0f);
 
     for(int i=0;i<16;i++)
         for(int j=0;j<16;j++) {
@@ -86,7 +83,6 @@ static uint32_t rgbled_transfer(SSISlave *dev, uint32_t data)
             int r=(s->current_value>>8) & 0xff;
             int g=(s->current_value>>16) & 0xff;
             draw_led(s,x,y,r,g,b);
-    //        s->redraw=1;
         }
         s->current_led++;
     }
@@ -100,7 +96,6 @@ static uint32_t rgbled_transfer(SSISlave *dev, uint32_t data)
 
 static void rgbled_update_display(void *opaque) {
     RgbledState *s = RGBLED(opaque);
-    //printf("update %d\n",s->redraw);
     if (!s->redraw) return;
     s->redraw = 0;
     dpy_gfx_update(s->con, 0, 0, s->width*16, s->height*16);
@@ -115,7 +110,6 @@ static const GraphicHwOps rgbled_ops = {
     .invalidate = rgbled_invalidate_display,
     .gfx_update = rgbled_update_display,
 };
-
 
 static void rgbled_realize(SSISlave *d, Error **errp) {
     RgbledState *s = RGBLED(d);
@@ -156,8 +150,8 @@ static const TypeInfo rgbled_info = {
     .name = TYPE_RGBLED,
     .parent = TYPE_SSI_SLAVE,
     .instance_size = sizeof(RgbledState),
-    //.instance_init = rgbled_init,
-    .class_init = rgbled_class_init};
+    .class_init = rgbled_class_init
+};
 
 static void rgbled_register_types(void) {
     type_register_static(&rgbled_info);
