@@ -86,6 +86,7 @@ static uint32_t rgbled_transfer(SSISlave *dev, uint32_t data)
             int r=(s->current_value>>8) & 0xff;
             int g=(s->current_value>>16) & 0xff;
             draw_led(s,x,y,r,g,b);
+    //        s->redraw=1;
         }
         s->current_led++;
     }
