@@ -91,6 +91,8 @@ static uint64_t esp32_efuse_read(void *opaque, hwaddr addr, unsigned int size)
     case A_EFUSE_DATE:
         r = 0x16042600;
     }
+    if(addr==4) r= 0x00c40a24;//0xC4000110;
+    if(addr==8) r= 0xfe1001;//0xfe240A;
     return r;
 }
 

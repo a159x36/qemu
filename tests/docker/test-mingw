@@ -17,8 +17,9 @@ requires_binary x86_64-w64-mingw32-gcc i686-w64-mingw32-gcc
 
 cd "$BUILD_DIR"
 
-TARGET_LIST=${TARGET_LIST:-$DEF_TARGET_LIST} \
-build_qemu \
+for prefix in x86_64-w64-mingw32- i686-w64-mingw32-; do
+    TARGET_LIST=${TARGET_LIST:-$DEF_TARGET_LIST} \
+        build_qemu --cross-prefix=$prefix \
         --enable-trace-backends=simple \
         --enable-gnutls \
         --enable-nettle \
@@ -27,6 +28,8 @@ build_qemu \
         --enable-bzip2 \
         --enable-guest-agent \
         --enable-docs
-install_qemu
-make installer
-make clean
+    install_qemu
+    make installer
+    make clean
+done
+

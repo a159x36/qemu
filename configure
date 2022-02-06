@@ -328,6 +328,7 @@ windres="${WINDRES-${cross_prefix}windres}"
 windmc="${WINDMC-${cross_prefix}windmc}"
 pkg_config="${PKG_CONFIG-${cross_prefix}pkg-config}"
 sdl2_config="${SDL2_CONFIG-${cross_prefix}sdl2-config}"
+libgcrypt_config="libgcrypt-config"
 
 check_define() {
 cat > $TMPC <<EOF
@@ -1890,6 +1891,7 @@ if test "$skip_meson" = no; then
   echo "nm = [$(meson_quote $nm)]" >> $cross
   echo "pkgconfig = [$(meson_quote $pkg_config)]" >> $cross
   echo "ranlib = [$(meson_quote $ranlib)]" >> $cross
+  echo "libgcrypt-config = [$(meson_quote $libgcrypt_config)]" >> $cross
   if has $sdl2_config; then
     echo "sdl2-config = [$(meson_quote $sdl2_config)]" >> $cross
   fi

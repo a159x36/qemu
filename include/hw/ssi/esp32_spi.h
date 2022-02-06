@@ -18,7 +18,9 @@ typedef struct Esp32SpiState {
     qemu_irq cs_gpio[ESP32_SPI_CS_COUNT];
     int num_cs;
     SSIBus *spi;
-
+    qemu_irq dma_irq;
+    QEMUTimer spi_timer;
+    bool xfer_32_bits;
     uint32_t addr_reg;
     uint32_t ctrl_reg;
     uint32_t status_reg;
@@ -30,6 +32,9 @@ typedef struct Esp32SpiState {
     uint32_t mosi_dlen_reg;
     uint32_t miso_dlen_reg;
     uint32_t pin_reg;
+    uint32_t peripheral_reg;
+    uint32_t outlink_reg;
+    uint32_t dmaconfig_reg;
     uint32_t data_reg[ESP32_SPI_BUF_WORDS];
 } Esp32SpiState;
 
@@ -84,11 +89,18 @@ REG32(SPI_SLAVE, 0x38)
     FIELD(SPI_SLAVE, TRANS_INTEN, 9, 1)
     FIELD(SPI_SLAVE, TRANS_CNT, 22, 4)
     FIELD(SPI_SLAVE, SLAVE_MODE, 30, 1)
+REG32(SPI_PERIPHERAL, 0x38)
+    FIELD(SPI_PERIPHERAL, TRANS_DONE, 4, 1)
+    FIELD(SPI_PERIPHERAL, TRANS_INTEN, 9, 1)
 
 REG32(SPI_W0, 0x80)
 REG32(SPI_EXT0, 0xF0)
 REG32(SPI_EXT1, 0xF4)
 REG32(SPI_EXT2, 0xF8)
 REG32(SPI_EXT3, 0xFC)
-
+REG32(SPI_DMA_CONF, 0x100)
+REG32(SPI_DMA_OUT_LINK, 0x104)
+    FIELD(SPI_DMA_OUT_LINK, START, 29, 1)
+    FIELD(SPI_DMA_OUT_LINK, ADDR, 0, 20)
+REG32(SPI_DMA_IN_LINK, 0x108)
 

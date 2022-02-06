@@ -155,6 +155,7 @@ static void esp32_timg_write(void *opaque, hwaddr addr,
 {
     Esp32TimgState *s = ESP32_TIMG(opaque);
     Esp32TimgTimerState *ts = NULL;
+//    printf("esp32_timg_write %lx %lx\n",addr,value);
     if (addr <= A_TIMG_T0LOAD) {
         ts = &s->t0;
     } else if (addr <= A_TIMG_T1LOAD) {
@@ -446,7 +447,6 @@ static void esp32_timg_timer_update_config(Esp32TimgTimerState *ts)
     TIMG_DEBUG_LOG("%s: TG%d base=0x%llx ns=0x%llx en=%d inc=%d autoreload=%d div=%d li=%d ei=%d alarm=%d\n", __func__, ts->parent->id,
              ts->count_base, ts->ns_base, ts->en, ts->inc, ts->autoreload, ts->divider,
              ts->level_int_en, ts->edge_int_en, ts->alarm);
-
     esp32_timg_timer_update_alarm(ts, ns_now);
 }
 
@@ -474,16 +474,21 @@ static void esp32_timg_timer_update_alarm(Esp32TimgTimerState *ts, uint64_t ns_n
                                 * esp32_timg_timer_direction(ts);
     if (count_to_alarm <= 0) {
         /* ignore overflow modulo 64 bits */
-        timer_del(&ts->alarm_timer);
-        return;
+//        timer_del(&ts->alarm_timer);
+//        return;
+//        printf("err %ld\n",count_to_alarm);
+//		count_to_alarm=0;
+//	    esp32_timg_timer_cb(ts);
+//	    timer_mod_ns(&ts->alarm_timer, ns_now + 1000000000l);
+//	    return;	
     }
 
     uint64_t ns_to_alarm = esp32_timg_timer_count_to_ns(ts, count_to_alarm);
 
-    TIMG_DEBUG_LOG("%s: TG%d count_to_alarm=0x%llx ns_to_alarm=0x%llx\n", __func__, ts->parent->id,
+    TIMG_DEBUG_LOG("%s: TG%d count_to_alarm=0x%lx ns_to_alarm=0x%lx\n", __func__, ts->parent->id,
                  count_to_alarm, ns_to_alarm);
 
-    timer_mod_anticipate_ns(&ts->alarm_timer, ns_now + ns_to_alarm);
+    timer_mod_ns(&ts->alarm_timer, ns_now + ns_to_alarm);
 }
 
 static bool esp32_timg_wdt_protected(Esp32TimgWdtState *ws)

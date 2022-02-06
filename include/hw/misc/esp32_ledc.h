@@ -5,6 +5,7 @@
 #include "hw/registerfields.h"
 #include "hw/misc/esp32_reg.h"
 #include "hw/misc/led.h"
+#include "qemu/timer.h"
 
 #define TYPE_ESP32_LEDC "misc.esp32.ledc"
 #define ESP32_LEDC(obj) OBJECT_CHECK(Esp32LEDCState, (obj), TYPE_ESP32_LEDC)
@@ -17,7 +18,18 @@ typedef struct Esp32LEDCState {
     uint32_t duty_res[ESP32_LEDC_TIMER_CNT];
     uint32_t timer_conf_reg[ESP32_LEDC_TIMER_CNT];
     uint32_t channel_conf0_reg[ESP32_LEDC_CHANNEL_CNT];
+    uint32_t channel_conf1_reg[ESP32_LEDC_CHANNEL_CNT];
+    uint32_t duty_reg[ESP32_LEDC_CHANNEL_CNT];
+    uint32_t cycle[ESP32_LEDC_CHANNEL_CNT];
+    uint32_t duty_init_reg[ESP32_LEDC_CHANNEL_CNT];
+    uint32_t ledc_conf;
     LEDState led[ESP32_LEDC_CHANNEL_CNT];
+    QEMUTimer led_timer[ESP32_LEDC_CHANNEL_CNT];
+    uint32_t op_val[ESP32_LEDC_CHANNEL_CNT];
+    qemu_irq func_irq;
+    qemu_irq irq;
+    uint32_t int_raw;
+    uint32_t int_en;
 } Esp32LEDCState;
 
 REG32(LEDC_CONF_REG, 0x190)
@@ -60,7 +72,8 @@ LEDC_TIMER_REG_GROUP(LEDC_LSTIMER1, 0x168)
 LEDC_TIMER_REG_GROUP(LEDC_LSTIMER2, 0x170)
 LEDC_TIMER_REG_GROUP(LEDC_LSTIMER3, 0x178)
 
-REG32(LEDC_INT_RAW_REG, 0x180)
-REG32(LEDC_INT_ST_REG, 0x184)
-REG32(LEDC_INT_ENA_REG, 0x188)
-REG32(LEDC_INT_CLR_REG, 0x18C)
+REG32(LEDC_INT_RAW, 0x180)
+REG32(LEDC_INT_ST, 0x184)
+REG32(LEDC_INT_ENA, 0x188)
+REG32(LEDC_INT_CLR, 0x18C)
+REG32(LEDC_CONF, 0x190)

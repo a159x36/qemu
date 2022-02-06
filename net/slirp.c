@@ -833,6 +833,12 @@ static int slirp_hostfwd(SlirpState *s, const char *redir_str, Error **errp)
 
     if (slirp_add_hostfwd(s->slirp, is_udp, host_addr, host_port, guest_addr,
                           guest_port) < 0) {
+        for(int i=1;i<7;i++) {
+        	if(slirp_add_hostfwd(s->slirp, is_udp, host_addr, host_port+i, guest_addr,guest_port)==0) 
+                          return 0;
+        }
+        if(slirp_add_hostfwd(s->slirp, is_udp, host_addr, 0, guest_addr,guest_port)==0)
+        	return 0;
         error_setg(errp, "Could not set up host forwarding rule '%s'",
                    redir_str);
         return -1;

@@ -61,8 +61,8 @@
 #include "chardev/char.h"
 #include "qom/object.h"
 
-#define VC_WINDOW_X_MIN  320
-#define VC_WINDOW_Y_MIN  240
+#define VC_WINDOW_X_MIN  160
+#define VC_WINDOW_Y_MIN  120
 #define VC_TERM_X_MIN     80
 #define VC_TERM_Y_MIN     25
 #define VC_SCALE_MIN    0.25
@@ -333,7 +333,7 @@ void gd_update_windowsize(VirtualConsole *vc)
     gd_update_geometry_hints(vc);
 
     if (vc->type == GD_VC_GFX && !s->full_screen && !s->free_scale) {
-        gtk_window_resize(GTK_WINDOW(vc->window ? vc->window : s->window),
+        gtk_window_resize(GTK_WINDOW(vc->window ? vc->window : s->window), 
                           VC_WINDOW_X_MIN, VC_WINDOW_Y_MIN);
     }
 }
@@ -547,7 +547,8 @@ static void gd_switch(DisplayChangeListener *dcl,
     }
 
     if (resized) {
-        gd_update_windowsize(vc);
+        if(vc->s->vc==vc) // only resize the first console
+            gd_update_windowsize(vc);
     } else {
         gd_update_full_redraw(vc);
     }
@@ -960,10 +961,11 @@ static gboolean gd_button_event(GtkWidget *widget, GdkEventButton *button,
                                 void *opaque)
 {
     VirtualConsole *vc = opaque;
-    GtkDisplayState *s = vc->s;
+//    GtkDisplayState *s = vc->s;
     InputButton btn;
 
-    /* implicitly grab the input at the first click in the relative mode */
+/*
+  //   implicitly grab the input at the first click in the relative mode 
     if (button->button == 1 && button->type == GDK_BUTTON_PRESS &&
         !qemu_input_is_absolute() && s->ptr_owner != vc) {
         if (!vc->window) {
@@ -974,6 +976,7 @@ static gboolean gd_button_event(GtkWidget *widget, GdkEventButton *button,
         }
         return TRUE;
     }
+*/
 
     if (button->button == 1) {
         btn = INPUT_BUTTON_LEFT;
@@ -1403,7 +1406,7 @@ static void gd_menu_untabify(GtkMenuItem *item, void *opaque)
                          G_CALLBACK(gd_tab_window_close), vc);
         gtk_widget_show_all(vc->window);
 
-        if (qemu_console_is_graphic(vc->gfx.dcl.con)) {
+        if (vc->type == GD_VC_GFX && qemu_console_is_graphic(vc->gfx.dcl.con)) {
             GtkAccelGroup *ag = gtk_accel_group_new();
             gtk_window_add_accel_group(GTK_WINDOW(vc->window), ag);
 
@@ -1496,6 +1499,12 @@ static void gd_accel_zoom_in(void *opaque)
 {
     GtkDisplayState *s = opaque;
     gtk_menu_item_activate(GTK_MENU_ITEM(s->zoom_in_item));
+}
+
+static void gd_accel_detach(void *opaque)
+{
+    GtkDisplayState *s = opaque;
+    gtk_menu_item_activate(GTK_MENU_ITEM(s->untabify_item));
 }
 
 static void gd_menu_zoom_out(GtkMenuItem *item, void *opaque)
@@ -2311,6 +2320,11 @@ static GtkWidget *gd_create_menu_view(GtkDisplayState *s, DisplayOptions *opts)
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->show_tabs_item);
 
     s->untabify_item = gtk_menu_item_new_with_mnemonic(_("Detach Tab"));
+    gtk_accel_group_connect(s->accel_group, GDK_KEY_d, HOTKEY_MODIFIERS, 0,
+            g_cclosure_new_swap(G_CALLBACK(gd_accel_detach), s, NULL));
+    gtk_accel_label_set_accel(
+            GTK_ACCEL_LABEL(gtk_bin_get_child(GTK_BIN(s->untabify_item))),
+            GDK_KEY_d, HOTKEY_MODIFIERS);
     gtk_menu_shell_append(GTK_MENU_SHELL(view_menu), s->untabify_item);
 
     s->show_menubar_item = gtk_check_menu_item_new_with_mnemonic(

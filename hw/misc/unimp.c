@@ -25,7 +25,7 @@ static uint64_t unimp_read(void *opaque, hwaddr offset, unsigned size)
     qemu_log_mask(LOG_UNIMP, "%s: unimplemented device read  "
                   "(size %d, offset 0x%0*" HWADDR_PRIx ")\n",
                   s->name, size, s->offset_fmt_width, offset);
-    return 0;
+    return s->default_value;
 }
 
 static void unimp_write(void *opaque, hwaddr offset,
@@ -73,6 +73,7 @@ static void unimp_realize(DeviceState *dev, Error **errp)
 static Property unimp_properties[] = {
     DEFINE_PROP_UINT64("size", UnimplementedDeviceState, size, 0),
     DEFINE_PROP_STRING("name", UnimplementedDeviceState, name),
+    DEFINE_PROP_UINT64("default_value", UnimplementedDeviceState, default_value, 0),
     DEFINE_PROP_END_OF_LIST(),
 };
 
