@@ -72,8 +72,6 @@ static const struct MemmapEntry {
     [ESP32_MEMREGION_RTCSLOW] = { 0x50000000, 0x2000 },
     [ESP32_MEMREGION_RTCFAST_I] = { 0x400C0000, 0x2000 },
     [ESP32_MEMREGION_RTCFAST_D] = { 0x3ff80000, 0x2000 },
-    /* Virtual Framebuffer, used for the graphical interface */
-    [ESP32_MEMREGION_FRAMEBUF] = { 0x20000000, ESP_RGB_MAX_VRAM_SIZE }
 };
 
 
@@ -708,8 +706,6 @@ static void esp32_soc_init(Object *obj)
     object_initialize_child(obj, "flash_enc", &s->flash_enc, TYPE_ESP32_FLASH_ENCRYPTION);
 
     object_initialize_child(obj, "sdmmc", &s->sdmmc, TYPE_DWC_SDMMC);
-
-    object_initialize_child(obj, "rgb", &s->rgb, TYPE_ESP_RGB);
 
     qdev_init_gpio_in_named(DEVICE(s), esp32_dig_reset, ESP32_RTC_DIG_RESET_GPIO, 1);
     qdev_init_gpio_in_named(DEVICE(s), esp32_cpu_reset, ESP32_RTC_CPU_RESET_GPIO, ESP32_CPU_COUNT);
