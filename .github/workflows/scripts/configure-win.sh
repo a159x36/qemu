@@ -18,12 +18,12 @@ echo DBG
     --datadir=share/qemu \
     --enable-gcrypt \
     --enable-iconv \
-    --enable-sdl \
+    --enable-gtk \
+    --disable-sdl \
     --enable-slirp \
     --enable-stack-protector \
     --extra-cflags=-Werror \
     --prefix=${PWD}/install/qemu \
-    --static \
     --target-list=${TARGET} \
     --with-pkgversion="${VERSION}" \
     --with-suffix="" \

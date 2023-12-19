@@ -10,6 +10,7 @@ brew install \
   pixman \
   pkg-config \
   sdl2 \
+  vte3 \
 && :
 
 # workaround if deprecated module 'distutils.version' is missing

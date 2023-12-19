@@ -8,7 +8,7 @@
 
 #define ESP32_MCPWM_REGS_SIZE 0x120
 
-#define DEBUG 0
+#define DEBUG(x)
 
 // get on and off time for pwm signal
 // there are 3 timers and 3 operators, each operator controls 2 signals, A and B which can control any gpio
@@ -41,7 +41,7 @@ static int get_duty_time(Esp32McpwmState *s, int index, uint32_t *on_time, uint3
     }
     *on_time=(t0*1000000000)/clock;
     *off_time=period-*on_time;
-    if(DEBUG) printf("get_duty_time %d %d %d\n", op, *on_time,*off_time);
+    DEBUG(printf("get_duty_time %d %d %d\n", op, *on_time,*off_time);)
     return index;
 }
 
@@ -109,8 +109,7 @@ static uint64_t esp32_mcpwm_read(void *opaque, hwaddr addr, unsigned int size) {
             r=s->op_gen_tstmp_b[op_no];
             break;
     }
-    if(DEBUG)
-        printf("esp32_mcpwm_read %lx,%lx\n",addr,r);
+    DEBUG(printf("esp32_mcpwm_read %lx,%lx\n",addr,r);)
     return r;
 }
 
@@ -118,8 +117,7 @@ static uint64_t esp32_mcpwm_read(void *opaque, hwaddr addr, unsigned int size) {
 static void esp32_mcpwm_write(void *opaque, hwaddr addr, uint64_t value,
                              unsigned int size) {
     Esp32McpwmState *s = ESP32_MCPWM(opaque);
-    if(DEBUG) 
-        printf("esp32_mcpwm_write %lx,%lx\n",addr,value);
+    DEBUG(printf("esp32_mcpwm_write %lx,%lx\n",addr,value);)
     int timer_no=(addr-A_PWM_TIMER0_CFG0_REG)/0x10;
     int op_no=(addr-A_PWM_OP0_GEN_STMP_CFG_REG)/0x38;
     uint32_t old;
@@ -169,7 +167,7 @@ static void esp32_mcpwm_write(void *opaque, hwaddr addr, uint64_t value,
             s->op_gen_tstmp_b[op_no]=value;
             if(value!=0 && value!=old) {
                 pwm_timer_cb(&s->mcpwm_timer[op_no*2+1]);
-            }            
+            }
             break;
     }
 }

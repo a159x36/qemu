@@ -170,6 +170,7 @@ static void esp32_ledc_write(void *opaque, hwaddr addr, uint64_t value,
                              unsigned int size) {
     Esp32LEDCState *s = ESP32_LEDC(opaque);
     // printf("esp32_ledc_write %lx,%lx\n",addr,value);
+    int index;
     switch (addr) {
         case A_LEDC_HSTIMER0_CONF_REG ... A_LEDC_LSTIMER3_CONF_REG:
             /* get duty resolution from timer config */
@@ -233,7 +234,7 @@ static void esp32_ledc_write(void *opaque, hwaddr addr, uint64_t value,
         case A_LEDC_LSCH5_DUTY_REG:
         case A_LEDC_LSCH6_DUTY_REG:
         case A_LEDC_LSCH7_DUTY_REG:
-            int index = (addr - A_LEDC_HSCH0_DUTY_REG) / 0x14;
+            index = (addr - A_LEDC_HSCH0_DUTY_REG) / 0x14;
             s->duty_reg[index] = value;
             s->duty_init_reg[index] = value;
             uint32_t on_time, off_time;

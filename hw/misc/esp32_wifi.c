@@ -12,7 +12,7 @@
 #include "esp32_wlan_packet.h"
 #include "hw/qdev-properties.h"
 
-#define DEBUG 0
+#define DEBUG(x)
 
 static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
 {
@@ -34,7 +34,7 @@ static uint64_t esp32_wifi_read(void *opaque, hwaddr addr, unsigned int size)
             break;
     }
 
-    if(DEBUG) printf("esp32_wifi_read %lx=%x\n",addr,r);
+    DEBUG(printf("esp32_wifi_read %lx=%x\n",addr,r);)
 
     return r;
 }
@@ -46,7 +46,7 @@ static void set_interrupt(Esp32WifiState *s,int e) {
 static void esp32_wifi_write(void *opaque, hwaddr addr, uint64_t value,
                                  unsigned int size) {
     Esp32WifiState *s = ESP32_WIFI(opaque);
-    if(DEBUG) printf("esp32_wifi_write %lx=%lx\n",addr, value);
+    DEBUG(printf("esp32_wifi_write %lx=%lx\n",addr, value);)
 
     switch (addr) {
         case A_WIFI_DMA_INLINK:

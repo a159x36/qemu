@@ -14,7 +14,9 @@ apt-get update -y -q \
     libsdl2-dev \
     libslirp-dev \
     ninja-build \
+    libgtk-3-dev \
     python3-pip \
+    libvte-2.91-dev \
     wget \
     zlib1g-dev \
 && :

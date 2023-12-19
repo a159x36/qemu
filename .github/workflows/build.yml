@@ -50,8 +50,8 @@ jobs:
       fail-fast: false
       matrix:
         # Naming MinGW platforms: https://sourceforge.net/p/mingw-w64/wiki2/TypeTriplets/
-        platform: [x86_64-linux-gnu, aarch64-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin, aarch64-apple-darwin]
-        target: [xtensa-softmmu, riscv32-softmmu]
+        platform: [x86_64-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin]
+        target: [xtensa-softmmu]
 
         include:
           - platform: x86_64-linux-gnu
@@ -81,11 +81,11 @@ jobs:
             run_prerequisites: "./.github/workflows/scripts/prerequisites-macos.sh"
             run_configure: "./.github/workflows/scripts/configure-macos.sh"
 
-          - platform: aarch64-apple-darwin
-            runs_on: macos-13-xlarge
-            shell: bash -e {0}
-            run_prerequisites: "./.github/workflows/scripts/prerequisites-macos.sh"
-            run_configure: "./.github/workflows/scripts/configure-macos.sh"
+#          - platform: aarch64-apple-darwin
+#            runs_on: macos-13-xlarge
+#            shell: bash -e {0}
+#            run_prerequisites: "./.github/workflows/scripts/prerequisites-macos.sh"
+#            run_configure: "./.github/workflows/scripts/configure-macos.sh"
 
     runs-on: ${{ matrix.runs_on }}
     container: ${{ matrix.container }}
@@ -116,6 +116,7 @@ jobs:
             mingw-w64-x86_64-libiconv
             mingw-w64-x86_64-libslirp
             mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-gtk3
             mingw-w64-x86_64-pixman
             mingw-w64-x86_64-pkg-config
             mingw-w64-x86_64-python

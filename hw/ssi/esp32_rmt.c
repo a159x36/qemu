@@ -26,12 +26,12 @@ static void restart_timer(Esp32RmtState *s, int channel) {
     timer_mod_anticipate_ns(&s->rmt_timer,qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL)+1250*s->txlim[channel]);
 }
 
-#define DEBUG 0
+#define DEBUG(x) 
 
 // send txlim data values, stop if a value is 0
 // set the correct raw int for tx_end or tx_thr_event
 static void send_data(Esp32RmtState *s, int channel) {
-    if (DEBUG) printf("send %d %d %d\n",channel, s->txlim[channel], s->sent);
+    DEBUG(printf("send %d %d %d\n",channel, s->txlim[channel], s->sent);)
     BusState *b = BUS(s->rmt);
     BusChild *ch = QTAILQ_FIRST(&b->children);
     SSIPeripheral *slave = SSI_PERIPHERAL(ch->child);
@@ -48,7 +48,7 @@ static void send_data(Esp32RmtState *s, int channel) {
     
     int memsize=((s->conf0[channel]>>24)&0xf)*64;
     int divcnt=(s->conf0[channel]&0xff);
-    if (DEBUG) printf("divcnt %d\n",divcnt);
+    DEBUG(printf("divcnt %d\n",divcnt);)
     for (int i = 0; i < s->txlim[channel] ; i++) {    
         int v=s->data[((i+s->sent)%memsize+channel*64)%512];
         // adjust periods based on the divider
@@ -58,7 +58,7 @@ static void send_data(Esp32RmtState *s, int channel) {
         d1=(d1*divcnt)/8;
         v=(v&0x80008000) | d0 | (d1<<16);
         if((v&0x7fff7fff)==0) { // stop sending when we see a zero period
-            if (DEBUG) printf("end send\n"); 
+            DEBUG(printf("end send\n");) 
             s->int_raw|=(1<<(channel*3));
             s->int_raw&=~(1<<(channel+24));
             s->sent=0;
@@ -119,7 +119,7 @@ static uint64_t esp32_rmt_read(void *opaque, hwaddr addr, unsigned int size)
         r = s->apb_conf;
         break;
     }
-    if (DEBUG) printf("rmt read %ld %ld\n",addr,r);
+    DEBUG(printf("rmt read %ld %ld\n",addr,r);)
     return r;
 }
 
@@ -128,8 +128,7 @@ static void esp32_rmt_write(void *opaque, hwaddr addr,
                        uint64_t value, unsigned int size)
 {
     Esp32RmtState *s = ESP32_RMT(opaque);
-    if (DEBUG && addr<A_RMT_DATA)
-            printf("rmt write %ld %ld\n",addr,value);
+    DEBUG(if(addr<A_RMT_DATA) printf("rmt write %ld %ld\n",addr,value);)
     int channel;
     switch (addr) {
     case A_RMT_CH0CONF0 ...  (A_RMT_CH0CONF0+8*8)-4:
@@ -153,7 +152,7 @@ static void esp32_rmt_write(void *opaque, hwaddr addr,
         break;
     case A_RMT_INT_ENA:
         s->int_en=value;
-        if (DEBUG) printf("int ena %x %x\n",s->int_en,s->int_raw);
+        DEBUG (printf("int ena %x %x\n",s->int_en,s->int_raw);)
         if(s->int_en & s->int_raw)
             qemu_irq_raise(s->irq);
         else
