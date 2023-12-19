@@ -12,23 +12,37 @@
 
 // get on and off time for pwm signal
 // there are 3 timers and 3 operators, each operator controls 2 signals, A and B which can control any gpio
+// there are 2 compare registers for each operator (also called A and B for added confusion)
 // the 6 output signals are pwm0a, pwm0b, pwm1a, pwm1b, pwm2a, pwm2b
-// index is the signal index
-static void get_duty_time(Esp32McpwmState *s, int index, uint32_t *on_time, uint32_t *off_time) {
+// index is the timer index, returns the signal index
+static int get_duty_time(Esp32McpwmState *s, int index, uint32_t *on_time, uint32_t *off_time) {
     uint64_t clock=160000000/(s->prescaler+1);
     int op=index/2;
-    int ab=index%2;
     int timer=s->timersel[op];
     uint64_t t0=0;
     clock=clock/((s->timer_cfg0[timer] & 0xff) +1);
     uint64_t period=(s->timer_cfg0[timer] >> 8) & 0xfffff;
     period=(period*1000000000)/clock;
-    if(ab==0 && ((s->op_gen_a[op]>>4)&3) == 1 ) // PWM_UTEA
+    if(((s->op_gen_a[op]>>4)&3) == 1 ) {// PWM_UTEA for PWMA
                 t0=s->op_gen_tstmp_a[op];
-    if(ab==1 && ((s->op_gen_a[op]>>6)&3) == 1 ) // PWM_UTEB
+                index&=0xfe;
+    }
+    if(((s->op_gen_a[op]>>6)&3) == 1 ) {// PWM_UTEB for PWMA
                 t0=s->op_gen_tstmp_b[op];
+                index&=0xfe;
+    }
+    if(((s->op_gen_b[op]>>4)&3) == 1 ) { // PWM_UTEA for PWMB
+                t0=s->op_gen_tstmp_a[op];
+                index|=1;
+    }
+    if(((s->op_gen_b[op]>>6)&3) == 1 ) {// PWM_UTEB for PWMB
+                t0=s->op_gen_tstmp_b[op];
+                index|=1;
+    }
     *on_time=(t0*1000000000)/clock;
     *off_time=period-*on_time;
+    if(DEBUG) printf("get_duty_time %d %d %d\n", op, *on_time,*off_time);
+    return index;
 }
 
 // timer callback
@@ -38,16 +52,16 @@ static void pwm_timer_cb(void *v) {
     int index=ps->index;    
     Esp32McpwmState *s=ps->s;
     uint32_t on_time=0, off_time=0;
-    get_duty_time(s, index, &on_time, &off_time);
+    int op_index=get_duty_time(s, index, &on_time, &off_time);
     uint64_t now=qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     if (ps->op_val == 0) {
         ps->op_val = 1;
         // this is sent to the gpio matrix to turn a gpio on for a certain time
-        qemu_set_irq(s->func_irq, (s->func_sig_start + index) * 2 + 1 + ((on_time / 1000) << 10));
+        qemu_set_irq(s->func_irq, (s->func_sig_start + op_index) * 2 + 1 + ((on_time / 1000) << 10));
         timer_mod_ns(&ps->timer, now + on_time);
     } else {
         ps->op_val = 0;
-        qemu_set_irq(s->func_irq, (s->func_sig_start + index) * 2 + ((off_time / 1000) << 10));
+        qemu_set_irq(s->func_irq, (s->func_sig_start + op_index) * 2 + ((off_time / 1000) << 10));
         timer_mod_ns(&ps->timer, now + off_time);
     }
 }
