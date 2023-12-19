@@ -78,15 +78,15 @@ static void servo_update_display(void *opaque) {
     float theta=(s->angle*3.1415926f)/180.0f;
     float ct=cos(theta);
     float st=sin(theta);
-    const float ci=125;
+    const float ci=125-64;
     const float cj=104.5;
-    for(int i=0;i<256;i++) {
+    for(int i=0;i<128;i++) {
         for(int j=0;j<256;j++) {
         	int jj=((j-cj)*ct-(i-ci)*st)+cj+0.5;
         	int ii=((j-cj)*st+(i-ci)*ct)+ci+0.5;
         	uint8_t *skin=(uint8_t *)servo_skin.pixel_data+(j+i*256)*4;
         	uint8_t *arm_skin=(uint8_t *)servo_arm_skin.pixel_data+(jj+ii*256)*4;
-        	if(jj>0 && ii>0 && jj<256 && ii<256 && arm_skin[3]!=0) {
+        	if(jj>0 && ii>0 && jj<256 && ii<128 && arm_skin[3]!=0) {
         		float p=arm_skin[3]/255.0;
         		int rr=p*arm_skin[0]+(1-p)*skin[0];
             	int gg=p*arm_skin[1]+(1-p)*skin[1];
@@ -97,7 +97,7 @@ static void servo_update_display(void *opaque) {
         		s->data[j+i*256]=(skin[0]<<16) | (skin[1]<<8) | skin[2] | 0xff000000;
         }
     }
-    dpy_gfx_update(s->con, 0, 0, 256, 256);
+    dpy_gfx_update(s->con, 0, 0, 256, 128);
 }
 
 
@@ -120,7 +120,7 @@ static void servo_realize(DeviceState *dev, Error **errp)
     }
     qdev_init_gpio_in(DEVICE(s), servo_set_state_gpio_handler, 1);
     s->con=graphic_console_init(dev, 0, &servo_ops, s);
-    qemu_console_resize(s->con,256, 256);
+    qemu_console_resize(s->con,256, 128);
     s->data=surface_data(qemu_console_surface(s->con));
     s->redraw=1;
 }

@@ -12,6 +12,7 @@
 #include "hw/misc/esp32_sha.h"
 #include "hw/misc/esp32_aes.h"
 #include "hw/misc/esp32_ledc.h"
+#include "hw/misc/esp32_mcpwm.h"
 #include "hw/misc/esp32_rsa.h"
 #include "hw/timer/esp32_frc_timer.h"
 #include "hw/timer/esp32_timg.h"
@@ -51,6 +52,8 @@ typedef struct Esp32SocState {
     Esp32AesState aes;
     Esp32RsaState rsa;
     Esp32LEDCState ledc;
+    Esp32McpwmState mcpwm0;
+    Esp32McpwmState mcpwm1;
     Esp32EfuseState efuse;
     Esp32SensState sens;
     Esp32AnaState ana;

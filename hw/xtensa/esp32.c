@@ -416,6 +416,18 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     sysbus_connect_irq(SYS_BUS_DEVICE(&s->ledc), 0,
                            qdev_get_gpio_in(intmatrix_dev, ETS_LEDC_INTR_SOURCE));
 
+    object_property_set_int(OBJECT(&s->mcpwm0),"func_sig_start",32, &error_abort);
+    qdev_realize(DEVICE(&s->mcpwm0), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->mcpwm0, DR_REG_PWM_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mcpwm0), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_PWM0_INTR_SOURCE));
+
+    object_property_set_int(OBJECT(&s->mcpwm1),"func_sig_start",108, &error_abort);
+    qdev_realize(DEVICE(&s->mcpwm1), &s->periph_bus, &error_fatal);
+    esp32_soc_add_periph_device(sys_mem, &s->mcpwm1, DR_REG_PWM1_BASE);
+    sysbus_connect_irq(SYS_BUS_DEVICE(&s->mcpwm1), 0,
+                           qdev_get_gpio_in(intmatrix_dev, ETS_PWM1_INTR_SOURCE));
+
 
     qdev_realize(DEVICE(&s->rtc_cntl), &s->rtc_bus, &error_fatal);
     esp32_soc_add_periph_device(sys_mem, &s->rtc_cntl, DR_REG_RTCCNTL_BASE);
@@ -437,6 +449,11 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
 
     qdev_connect_gpio_out_named(DEVICE(&s->ledc),"func_irq",0,
     							qdev_get_gpio_in_named(DEVICE(&s->gpio),ESP32_GPIOS_FUNC,0));
+	qdev_connect_gpio_out_named(DEVICE(&s->mcpwm0),"func_irq",0,
+                                qdev_get_gpio_in_named(DEVICE(&s->gpio),ESP32_GPIOS_FUNC,0));
+	qdev_connect_gpio_out_named(DEVICE(&s->mcpwm1),"func_irq",0,
+	                            qdev_get_gpio_in_named(DEVICE(&s->gpio),ESP32_GPIOS_FUNC,0));
+
 
     for (int i = 0; i < ESP32_UART_COUNT; ++i) {
         const hwaddr uart_base[] = {DR_REG_UART_BASE, DR_REG_UART1_BASE, DR_REG_UART2_BASE};
@@ -684,6 +701,10 @@ static void esp32_soc_init(Object *obj)
     object_initialize_child(obj, "aes", &s->aes, TYPE_ESP32_AES);
 
     object_initialize_child(obj, "ledc", &s->ledc, TYPE_ESP32_LEDC);
+
+    object_initialize_child(obj, "mcpwm0", &s->mcpwm0, TYPE_ESP32_MCPWM);
+
+    object_initialize_child(obj, "mcpwm1", &s->mcpwm1, TYPE_ESP32_MCPWM);
 
     object_initialize_child(obj, "rsa", &s->rsa, TYPE_ESP32_RSA);
 
