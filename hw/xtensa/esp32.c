@@ -192,6 +192,7 @@ static void esp32_soc_reset(DeviceState *dev)
             device_cold_reset(s->wifi_dev);
         }
         device_cold_reset(DEVICE(&s->rmt));
+        device_cold_reset(DEVICE(&s->ledc));
     }
     if (s->requested_reset & ESP32_SOC_RESET_PROCPU) {
         xtensa_select_static_vectors(&s->cpu[0].env, s->rtc_cntl.stat_vector_sel[0]);

@@ -26,22 +26,25 @@ static int get_duty_time(Esp32McpwmState *s, int index, uint32_t *on_time, uint3
     if(((s->op_gen_a[op]>>4)&3) == 1 ) {// PWM_UTEA for PWMA
                 t0=s->op_gen_tstmp_a[op];
                 index&=0xfe;
-    }
-    if(((s->op_gen_a[op]>>6)&3) == 1 ) {// PWM_UTEB for PWMA
+    } else {
+        if(((s->op_gen_a[op]>>6)&3) == 1 ) {// PWM_UTEB for PWMA
                 t0=s->op_gen_tstmp_b[op];
                 index&=0xfe;
-    }
-    if(((s->op_gen_b[op]>>4)&3) == 1 ) { // PWM_UTEA for PWMB
+        } else {
+            if(((s->op_gen_b[op]>>4)&3) == 1 ) { // PWM_UTEA for PWMB
                 t0=s->op_gen_tstmp_a[op];
                 index|=1;
-    }
-    if(((s->op_gen_b[op]>>6)&3) == 1 ) {// PWM_UTEB for PWMB
-                t0=s->op_gen_tstmp_b[op];
-                index|=1;
+            } else {
+                if(((s->op_gen_b[op]>>6)&3) == 1 ) {// PWM_UTEB for PWMB
+                    t0=s->op_gen_tstmp_b[op];
+                    index|=1;
+                }
+            }
+        }
     }
     *on_time=(t0*1000000000)/clock;
     *off_time=period-*on_time;
-    DEBUG(printf("get_duty_time %d %d %d\n", op, *on_time,*off_time);)
+    DEBUG(printf("get_duty_time %d %d %d %ld %ld %x %x\n", op, *on_time,*off_time, t0, clock, s->op_gen_a[op], s->op_gen_tstmp_a[op]);)
     return index;
 }
 

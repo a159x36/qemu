@@ -315,6 +315,8 @@ static void ledc_timer_cb(void *v) {
                 } else {
                     s->duty_reg[index] -= duty_scale;
                 }
+                if(s->duty_reg[index]<0)
+                    s->duty_reg[index]=0;
                 duty_num--;
                 if (duty_num < 0) duty_num = 0;
                 if (duty_num == 0 && (s->int_en & (1 << (index + 8)))) {
@@ -348,9 +350,17 @@ static void esp32_ledc_init(Object *obj) {
     qdev_init_gpio_out_named(DEVICE(s), &s->func_irq, "func_irq", 1);
 }
 
+static void esp32_ledc_reset(DeviceState *obj) {
+    Esp32LEDCState *s = ESP32_LEDC(obj);
+    for (int i = 0; i < ESP32_LEDC_CHANNEL_CNT; i++) {
+        timer_del(&s->led_timer[i]);
+    }
+}
+
 static void esp32_ledc_class_init(ObjectClass *klass, void *data) {
     DeviceClass *dc = DEVICE_CLASS(klass);
     dc->realize = esp32_ledc_realize;
+    dc->reset = esp32_ledc_reset;
 }
 
 static const TypeInfo esp32_ledc_info = {

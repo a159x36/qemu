@@ -214,9 +214,6 @@ static void st7789v_cd(void *opaque, int n, int level)
     c->cmd_mode = !level;
 }
 
-//static int64_t lasttime=0;
-//static int64_t offtime=0;
-//static int lastlevel=0;
 static void st7789v_backlight(void *opaque, int n, int level)
 {
     int64_t now=qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -377,6 +374,8 @@ static QemuInputHandler keyboard_handler = {
     .event = keyboard_event,
 };
 
+
+
 static void st7789v_realize(SSIPeripheral *d, Error **errp) {
     
     St7789vState *s = ST7789V(d);
@@ -397,10 +396,17 @@ static void st7789v_realize(SSIPeripheral *d, Error **errp) {
     }
 }
 
+static void st7789v_reset(DeviceState *dev) {
+    if (console_state.con != 0) {
+        console_state.lasttime=0;
+        console_state.lastlevel=0;
+    }
+}
+
 static void st7789v_class_init(ObjectClass *klass, void *data) {
     DeviceClass *dc = DEVICE_CLASS(klass);
     SSIPeripheralClass *k = SSI_PERIPHERAL_CLASS(klass);
-
+    dc->reset = st7789v_reset;
     k->realize = st7789v_realize;
     k->transfer = st7789v_transfer;
     k->cs_polarity = SSI_CS_NONE;

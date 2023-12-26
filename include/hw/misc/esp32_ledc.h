@@ -19,7 +19,7 @@ typedef struct Esp32LEDCState {
     uint32_t timer_conf_reg[ESP32_LEDC_TIMER_CNT];
     uint32_t channel_conf0_reg[ESP32_LEDC_CHANNEL_CNT];
     uint32_t channel_conf1_reg[ESP32_LEDC_CHANNEL_CNT];
-    uint32_t duty_reg[ESP32_LEDC_CHANNEL_CNT];
+    int32_t duty_reg[ESP32_LEDC_CHANNEL_CNT];
     uint32_t cycle[ESP32_LEDC_CHANNEL_CNT];
     uint32_t duty_init_reg[ESP32_LEDC_CHANNEL_CNT];
     uint32_t ledc_conf;

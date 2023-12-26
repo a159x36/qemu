@@ -27,5 +27,4 @@ echo DBG
     --target-list=${TARGET} \
     --with-pkgversion="${VERSION}" \
     --with-suffix="" \
-    --without-default-features \
 || { cat meson-logs/meson-log.txt && false; }

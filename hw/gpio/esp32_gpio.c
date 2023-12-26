@@ -221,7 +221,15 @@ static const MemoryRegionOps gpio_ops = {
     .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-static void esp32_gpio_reset(DeviceState *dev) {}
+static void esp32_gpio_reset(DeviceState *dev) {
+  Esp32GpioState *s = ESP32_GPIO(dev);
+  for(int i=0;i<256;i++) {
+	s->gpio_in_sel[i]=0;
+   }
+  for(int i=0;i<40;i++) {
+	s->gpio_out_sel[i]=0;
+   }
+}
 
 static void esp32_gpio_realize(DeviceState *dev, Error **errp) {}
 
@@ -230,11 +238,8 @@ static void func_gpio(void *opaque, int n, int val) {
 	int func=(val>>1)&0x1ff;
 	int v=val & 1;
 	int param=((unsigned)val)>>10;
-//	printf("func_gpio %x\n",val);
 	for(int i=0;i<40;i++) {
 		if((s->gpio_out_sel[i] & 0x1ff ) == func) {
-//		    printf("func_gpio set %d %d %d\n",i,v,param);
-//			set_gpio(s,i,v);
 			qemu_set_irq(s->gpios[i], v+(param<<1));
 		}
 	}
