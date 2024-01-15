@@ -21,7 +21,7 @@ brew install \
 #
 # Also if something goes wrong, 'setup-python' action can be used
 # as a general solution, https://github.com/actions/runner-images/issues/8932#issuecomment-1836013315)
-PYFIX_FILE=/usr/local/Cellar/glib/2.78.1/share/glib-2.0/codegen/utils.py
+PYFIX_FILE=/usr/local/Cellar/glib/2.78.3/share/glib-2.0/codegen/utils.py
 if [ -f "${PYFIX_FILE}" ] ; then
   python3 -m pip install --upgrade pip
   python3 -m pip install looseversion
