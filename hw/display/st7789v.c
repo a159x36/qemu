@@ -45,8 +45,11 @@ typedef struct ConsoleState {
     int cmd_mode;
     int64_t lasttime;
     int lastlevel;
-    int64_t offtime;
+    //int64_t offtime;
     uint32_t *data; // surface data
+    int64_t time_off;
+    int64_t time_on;
+    QEMUTimer backlight_timer;
 } ConsoleState;
 
 // only one console
@@ -94,7 +97,19 @@ static void draw_skin(ConsoleState *c) {
                 dest[(ttgo_board_skin.width - j - 1) * ttgo_board_skin.height +i] = rgba;
         }
 }
-
+static void bl_timer_cb(void *v) {
+    uint64_t now=qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+    ConsoleState *c=&console_state;
+    if(c->time_on==0 || c->time_off==0) {
+        c->backlight=256*c->lastlevel;
+    } else {
+        c->backlight=(c->time_on*256)/(c->time_on+c->time_off);
+    }
+  //  printf("bl:%ld %ld %d\n",c->time_on,c->time_off, c->backlight);
+    c->time_on=0;
+    c->time_off=0;
+    timer_mod_ns(&console_state.backlight_timer, now + 100000000);
+}
 static void set_portrait(ConsoleState *c) {
     qemu_console_resize(c->con, ttgo_board_skin.width,
                         ttgo_board_skin.height);
@@ -169,7 +184,7 @@ static uint32_t st7789v_transfer(SSIPeripheral *dev, uint32_t data)
                     if(brightness==256) {
                         d32=((d16 & 0xf800) << 8) |
                             ((d16 & 0x7e0) << 5) | 
-                            ((d16 & 0x1f) << 3);
+                            ((d16 & 0x1f) << 3) | (0x80<<24);
                     } else {
                         if(brightness==0) d32=0;
                         else {
@@ -225,30 +240,23 @@ static void st7789v_backlight(void *opaque, int n, int level)
     if(t!=0) {
         now=c->lasttime+t;
     }
-    //printf("bl=%ld %d\n",now, level);
+  //  printf("bl=%ld %d\n",now, level);
     if(now-c->lasttime<100000000) {
         if(v==0) {
-            int64_t ontime=now-c->lasttime;
-            c->backlight=(ontime*256)/(c->offtime+ontime);
-        //    printf("bl=%d %ld %ld\n",c->backlight, ontime, c->offtime);
+            c->time_on+=now-c->lasttime;
         } else {
-            c->offtime=now-c->lasttime;
+            c->time_off+=now-c->lasttime;
         }
     } else {
         c->backlight=256*v;
-    }
-    c->lasttime=now;
-    /*
-    if(c->backlight != level) {
         volatile unsigned *dest = c->data;
-        uint32_t px=level?(64<<16)|(64<<8)|(64):0;
+        uint32_t px=v?(64<<16)|(64<<8)|(64):0;
         for(int y=0;y<c->height;y++)
             for(int x=0;x<c->width;x++)
                 dest[(y+c->skin_y_offset)*c->skin_width+x+c->skin_x_offset]=px^(rand()&0x0f0f0f);
         dpy_gfx_update(c->con, c->skin_x_offset, c->skin_y_offset, c->width, c->height);
     }
-    c->backlight = level;
-    */
+    c->lasttime=now;
 }
 
 static void st7789_update_display(void *opaque) {
@@ -390,6 +398,11 @@ static void st7789v_realize(SSIPeripheral *d, Error **errp) {
         ConsoleState *c=&console_state;
         s->con=c;
         console_state.con = graphic_console_init(dev, 0, &st7789_ops, s);
+        int64_t now=qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        c->lastlevel=0;
+        c->lasttime=now;
+        timer_init_ns(&c->backlight_timer,QEMU_CLOCK_VIRTUAL, bl_timer_cb,0);
+        timer_mod_ns(&c->backlight_timer, now + 100000000);
         set_landscape(c);
     } else {
         s->con = &console_state;
@@ -398,8 +411,9 @@ static void st7789v_realize(SSIPeripheral *d, Error **errp) {
 
 static void st7789v_reset(DeviceState *dev) {
     if (console_state.con != 0) {
-        console_state.lasttime=0;
-        console_state.lastlevel=0;
+        int64_t now=qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        console_state.lasttime=now;
+       // console_state.lastlevel=0;
     }
 }
 
