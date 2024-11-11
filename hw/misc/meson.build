@@ -169,6 +169,7 @@ system_ss.add(when: 'CONFIG_XTENSA_ESP32S3', if_true: files(
   'esp32s3_hmac.c',
   'esp32c3_ledc.c',
   'esp32s3_sens.c',
+  'esp32s3_pms.c',
 ))
 
 system_ss.add(when: 'CONFIG_RISCV_ESP32C3', if_true: files(
