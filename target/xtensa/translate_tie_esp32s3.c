@@ -3921,7 +3921,6 @@ static void translate_srs_accx_s3(DisasContext *dc, const OpcodeArg arg[], const
 
 static void translate_ld_qacc_x_h_32_ip_s3(DisasContext *dc, const OpcodeArg arg[], const uint32_t par[])
 {
-    printf("translate_ld_qacc_x_h_32_ip_s3 enter\n");
     TCGv_i32 op_type = tcg_constant_i32((uint32_t)par[0]);
     TCGv_i32 addr = tcg_temp_new_i32();
     // We have to align to 32 bit memory
