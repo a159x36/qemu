@@ -99,7 +99,7 @@ static void esp32s3_sha_continue_hash(ESP32S3ShaState *s, uint32_t mode, uint32_
 
     alg.compress(&s->context, (uint8_t*) message);
 
-    esp32s3_sha_read_digest(s->mode, s->hash, &s->context, alg.len);
+    esp32s3_sha_read_digest(mode, hash, &s->context, alg.len);
 }
 
 
@@ -168,7 +168,7 @@ static void esp32s3_sha_start(ESP32S3ShaState *s, ESP32S3ShaOperation op, uint32
     } else {
         /* Continue operation: initialize the context from the current hash.
          * We don't have any accessor to do it so ... do it the "dirty" way */
-        esp32s3_sha_write_digest(s->mode, s->hash, &s->context, alg.len);
+        esp32s3_sha_write_digest(mode, hash, &s->context, alg.len);
     }
 
     if ((op & SHA_OP_DMA_MASK) == SHA_OP_DMA_MASK) {
