@@ -42,4 +42,4 @@ apt-get install -y -q --no-install-recommends \
     zlib1g-dev:arm64 \
 && :
 
-/usr/bin/pip3 install meson==1.2.3
+#/usr/bin/pip3 install meson==1.2.3
