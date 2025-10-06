@@ -50,7 +50,7 @@ jobs:
       fail-fast: false
       matrix:
         # Naming MinGW platforms: https://sourceforge.net/p/mingw-w64/wiki2/TypeTriplets/
-        platform: [x86_64-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin, aarch64-apple-darwin, aarch64-linux-gnu]
+        platform: [x86_64-linux-gnu, x86_64-w64-mingw32, x86_64-apple-darwin, aarch64-apple-darwin]
         target: [xtensa-softmmu]
 
         include:
