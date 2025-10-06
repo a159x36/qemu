@@ -5,13 +5,13 @@ set -euo pipefail
 export DEBIAN_FRONTEND="noninteractive"
 
 EXTRA_APT_SOURCES="
-deb [arch=arm64] http://ports.ubuntu.com/ focal main restricted
-deb [arch=arm64] http://ports.ubuntu.com/ focal-updates main restricted
-deb [arch=arm64] http://ports.ubuntu.com/ focal universe
-deb [arch=arm64] http://ports.ubuntu.com/ focal-updates universe
-deb [arch=arm64] http://ports.ubuntu.com/ focal multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ focal-updates multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ focal-backports main restricted universe multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ noble main restricted
+deb [arch=arm64] http://ports.ubuntu.com/ noble-updates main restricted
+deb [arch=arm64] http://ports.ubuntu.com/ noble universe
+deb [arch=arm64] http://ports.ubuntu.com/ noble-updates universe
+deb [arch=arm64] http://ports.ubuntu.com/ noble multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ noble-updates multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ noble-backports main restricted universe multiverse
 "
 
 dpkg --add-architecture arm64
