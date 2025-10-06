@@ -62,14 +62,6 @@ jobs:
             run_prerequisites: "./.github/workflows/scripts/prerequisites-native.sh"
             run_configure: "./.github/workflows/scripts/configure-native.sh"
 
-          - platform: aarch64-linux-gnu
-            runs_on: ubuntu-24.04
-            # Used the minimal docker-hub's image instead of the heavy GitHub's one for correct croossbuild prerequisites
-            container: ubuntu:24.04
-            shell: bash -e {0}
-            run_prerequisites: "./.github/workflows/scripts/prerequisites-cross-linux-arm64.sh"
-            run_configure: "./.github/workflows/scripts/configure-cross-linux-arm64.sh"
-
           - platform: x86_64-w64-mingw32
             runs_on: windows-2022
             shell: msys2 {0}
