@@ -577,7 +577,7 @@ static void esp32_soc_realize(DeviceState *dev, Error **errp)
     esp32_soc_add_unimp_device(sys_mem, "esp32.unknown_wifi1", DR_REG_BB_BASE , 0x1000,-1);
     esp32_soc_add_unimp_device(sys_mem, "esp32.bt", DR_REG_BT_BASE, 0x1000, 0);
 
-    /* st7789v is attached to SPI2 and SPI2 so the both HSPI and VSPI will work, 
+    /* st7789v is attached to SPI2 and SPI3 so the both HSPI and VSPI will work,
     they share a single console*/
     DeviceState *disp=ssi_create_peripheral(s->spi[2].spi, "st7789v");
     DeviceState *disp1=ssi_create_peripheral(s->spi[3].spi, "st7789v");
