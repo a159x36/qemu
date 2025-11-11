@@ -22,8 +22,8 @@
 #include "hw/ssi/esp32s3_lcd.h"
 #include "qemu/error-report.h"
 
-#define LCD1_DEBUG      0
-#define LCD1_WARNING    0
+#define LCD_DEBUG      0
+#define LCD_WARNING    0
 
 
 static uint64_t esp32s3_lcd_read(void *opaque, hwaddr addr, unsigned int size)
@@ -34,7 +34,7 @@ static uint64_t esp32s3_lcd_read(void *opaque, hwaddr addr, unsigned int size)
 
     switch(addr) {
         case A_LCD_CAM_LCD_USER:
-            r = s->user;
+            r = FIELD_DP32(s->user,LCD_CAM_LCD_USER,RESET,0);
             break;
         case A_LCD_CAM_LC_DMA_INT_RAW:
             r = s->int_raw;
@@ -47,8 +47,8 @@ static uint64_t esp32s3_lcd_read(void *opaque, hwaddr addr, unsigned int size)
             break;
     }
 
-#if LCD1_DEBUG
-    info_report("[LCD1] Reading 0x%lx (0x%lx)", addr, r);
+#if LCD_DEBUG
+    info_report("[LCD_CAM] Reading 0x%lx (0x%lx)", addr, r);
 #endif
     return r;
 }
@@ -66,8 +66,8 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
 {
     ESP32S3LcdState *s = ESP32S3_LCD(opaque);
     uint32_t wvalue = (uint32_t) value;
-#if LCD1_DEBUG
-    info_report("[LCD1] Writing 0x%lx = %08lx", addr, value);
+#if LCD_DEBUG
+    info_report("[LCD_CAM] Writing 0x%lx = %08lx", addr, value);
 #endif
     switch(addr) {
         case A_LCD_CAM_LCD_USER:
@@ -78,11 +78,9 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                 wvalue=FIELD_DP32(wvalue,LCD_CAM_LCD_USER,START,0);
                 
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
-#if LCD1_DEBUG
-    info_report("[LCD1] GDMA 0x%p ",s->gdma);
-#endif               
-                
-                
+#if LCD_DEBUG
+    info_report("[LCD_CAM] GDMA start %d %d",send_cmd,send_data);
+#endif
                 bool defer_irq=false;
                 if(send_cmd) {
                     qemu_set_irq(s->cmd_gpio,0);
@@ -96,7 +94,7 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                     SSIPeripheralClass *ssc = SSI_PERIPHERAL_GET_CLASS(peripheral);
                     uint32_t gdma_out_idx;
                     if ( !esp_gdma_get_channel_periph(s->gdma, GDMA_LCDCAM, ESP_GDMA_OUT_IDX, &gdma_out_idx) ) {
-        	            warn_report("[LCD_CAM] GDMA requested but no properly configured channel found");
+        	            error_report("[LCD_CAM] GDMA requested but no properly configured channel found");
                         break;
                     }
                     uint32_t tr_size=esp_gdma_get_transfer_size(s->gdma, gdma_out_idx);
@@ -120,7 +118,6 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                 }
 	        }
             s->user = wvalue;
-
             break;
         case A_LCD_CAM_CMD_VAL:
             s->cmd_val = wvalue;
@@ -134,11 +131,6 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                 qemu_irq_lower(s->irq);
             break;
     }
-
-
-
-
-
 }
 
 
