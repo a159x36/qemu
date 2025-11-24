@@ -207,6 +207,7 @@ jobs:
         with:
           pattern: dist-qemu-*
           path: artifacts
+          merge-multiple: true
 
       - name: Release
         uses: softprops/action-gh-release@v2
