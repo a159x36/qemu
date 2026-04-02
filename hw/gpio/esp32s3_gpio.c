@@ -545,12 +545,47 @@ static uint64_t esp32_iomux_read(void *opaque, hwaddr addr, unsigned int size) {
     return 0;
 }
 
+static void esp32s3_apply_pull_state(ESP32S3GPIOState *s, int gpio)
+{
+    if (gpio < 0 || gpio >= N_GPIOS) {
+        return;
+    }
+
+    bool output = false;
+    if (gpio < 32) {
+        output = (s->gpio_enable >> gpio) & 1;
+    } else {
+        output = (s->gpio_enable1 >> (gpio - 32)) & 1;
+    }
+    if (output) {
+        return;
+    }
+
+    uint32_t io_mux = s->iomux_regs[gpio + 1];
+    bool pullup = FIELD_EX32(io_mux, IO_MUX, FUN_WPU);
+    bool pulldown = FIELD_EX32(io_mux, IO_MUX, FUN_WPD);
+    if (pullup == pulldown) {
+        return;
+    }
+
+    int val = pullup ? 1 : 0;
+    if (gpio < 32) {
+        s->gpio_in = (s->gpio_in & ~(1U << gpio)) | (val << gpio);
+    } else {
+        int n1 = gpio - 32;
+        s->gpio_in1 = (s->gpio_in1 & ~(1U << n1)) | (val << n1);
+    }
+}
+
 static void esp32_iomux_write(void *opaque, hwaddr addr, uint64_t value,
                              unsigned int size) {
     ESP32S3GPIOState *s = ESP32S3_GPIO(opaque);
     int n=addr/4;
     if(n<N_GPIOS+1) {
         s->iomux_regs[n]=value;
+        if (n > 0) {
+            esp32s3_apply_pull_state(s, n - 1);
+        }
     }
 }
 
@@ -886,6 +921,10 @@ static void ESP32S3_GPIO_write(void *opaque, hwaddr addr, uint64_t value,
             break;
     }
 
+    for (int i = 0; i < N_GPIOS; i++) {
+        esp32s3_apply_pull_state(s, i);
+    }
+
     if (s->gpio_out != oldvalue) {
         uint32_t diff = (s->gpio_out ^ oldvalue);
         for (int i = 0; i < 32; i++) {
@@ -954,6 +993,9 @@ static void ESP32S3_GPIO_reset(Object *dev, ResetType type) {
             if(i<32) s->gpio_enable=1<<i; else s->gpio_enable1=1<<(i-32);
         }
         s->iomux_regs[i+1]=v;
+    }
+    for (int i = 0; i < N_GPIOS; i++) {
+        esp32s3_apply_pull_state(s, i);
     }
 }
 
