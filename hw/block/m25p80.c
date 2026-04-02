@@ -514,6 +514,8 @@ struct Flash {
     bool four_bytes_address_mode;
     bool reset_enable;
     bool quad_enable;
+    uint8_t status_reg1_raw;
+    uint8_t status_reg2;
     bool aai_enable;
     bool block_protect0;
     bool block_protect1;
@@ -810,9 +812,22 @@ static void complete_collecting_data(Flash *s)
         case MAN_SPANSION:
             s->quad_enable = !!(s->data[1] & 0x02);
             break;
-        case MAN_ISSI:
-            s->quad_enable = extract32(s->data[0], 6, 1);
+        case MAN_ISSI: {
+            bool qe_sr1_bit6;
+            bool qe_sr1_bit1;
+            bool qe_sr2_bit1;
+
+            s->status_reg1_raw = s->data[0];
+            if (s->len > 1) {
+                s->status_reg2 = s->data[1];
+            }
+
+            qe_sr1_bit6 = extract32(s->status_reg1_raw, 6, 1);
+            qe_sr1_bit1 = extract32(s->status_reg1_raw, 1, 1);
+            qe_sr2_bit1 = extract32(s->status_reg2, 1, 1);
+            s->quad_enable = qe_sr1_bit6 || qe_sr1_bit1 || qe_sr2_bit1;
             break;
+        }
         case MAN_MACRONIX:
             s->quad_enable = extract32(s->data[0], 6, 1);
             if (s->len > 1) {
@@ -837,6 +852,17 @@ static void complete_collecting_data(Flash *s)
         case MAN_WINBOND:
             s->quad_enable = !!(s->data[0] & 0x02);
             break;
+        case MAN_ISSI: {
+            bool qe_sr1_bit6;
+            bool qe_sr1_bit1;
+
+            s->status_reg2 = s->data[0];
+            qe_sr1_bit6 = extract32(s->status_reg1_raw, 6, 1);
+            qe_sr1_bit1 = extract32(s->status_reg1_raw, 1, 1);
+            s->quad_enable = extract32(s->status_reg2, 1, 1) ||
+                             qe_sr1_bit6 || qe_sr1_bit1;
+            break;
+        }
         default:
             break;
         }
@@ -902,6 +928,8 @@ static void reset_memory(Flash *s)
     s->write_enable = false;
     s->reset_enable = false;
     s->quad_enable = false;
+    s->status_reg1_raw = 0;
+    s->status_reg2 = 0;
     s->aai_enable = false;
 
     switch (get_man(s)) {
@@ -1132,16 +1160,14 @@ static void decode_qio_read_cmd(Flash *s)
         break;
     case MAN_ISSI:
         /*
-         * The Fast Read Quad I/O instruction code is followed by address bytes
-         * and dummy cycles, transmitted via the IO3, IO2, IO1 and IO0 line.
+         * The Fast Read Quad I/O instruction code is followed by address bytes,
+         * one mode byte, and one dummy byte (8 dummy cycles) on the IO3..IO0
+         * lines for 0xEB on ESP32S3. Model mode+dummy as 2 extra bytes.
          *
-         * The number of dummy cycles is configurable but this is currently
-         * unmodeled, hence the default value 6 is used.
-         *
-         * QPI (Quad Peripheral Interface) mode has different default value
-         * of dummy cycles, but this is unsupported at the time being.
+         * QPI (Quad Peripheral Interface) mode has different default values,
+         * but this is unsupported at the time being.
          */
-        s->needed_bytes += 3;
+        s->needed_bytes += 2;
         break;
     default:
         break;
@@ -1298,6 +1324,10 @@ static void decode_new_cmd(Flash *s, uint32_t value)
             s->needed_bytes = 2;
             s->state = STATE_COLLECTING_VAR_LEN_DATA;
             break;
+        case MAN_ISSI:
+            s->needed_bytes = 2;
+            s->state = STATE_COLLECTING_VAR_LEN_DATA;
+            break;
         default:
             s->needed_bytes = 1;
             s->state = STATE_COLLECTING_DATA;
@@ -1321,6 +1351,7 @@ static void decode_new_cmd(Flash *s, uint32_t value)
 
         switch (get_man(s)) {
         case MAN_WINBOND:
+        case MAN_ISSI:
             s->needed_bytes = 1;
             s->state = STATE_COLLECTING_DATA;
             s->pos = 0;
@@ -1396,8 +1427,25 @@ static void decode_new_cmd(Flash *s, uint32_t value)
         break;
 
     case RDCR:
-        s->data[0] = s->volatile_cfg & 0xFF;
-        s->data[0] |= (!!s->four_bytes_address_mode) << 5;
+        switch (get_man(s)) {
+        case MAN_ISSI:
+            s->data[0] = s->status_reg2;
+            s->quad_enable = !!(s->status_reg2 & 0x02) ||
+                             !!(s->status_reg1_raw & 0x40) ||
+                             !!(s->status_reg1_raw & 0x02);
+            break;
+        case MAN_SPANSION:
+            s->data[0] = s->spansion_cr1v;
+            s->quad_enable = extract32(s->spansion_cr1v,
+                                       SPANSION_QUAD_CFG_POS,
+                                       SPANSION_QUAD_CFG_LEN);
+            break;
+        case MAN_MACRONIX:
+        default:
+            s->data[0] = s->volatile_cfg & 0xFF;
+            s->data[0] |= (!!s->four_bytes_address_mode) << 5;
+            break;
+        }
         s->pos = 0;
         s->len = 1;
         s->state = STATE_READING_DATA;
@@ -1501,6 +1549,15 @@ static void decode_new_cmd(Flash *s, uint32_t value)
             break;
         case MAN_WINBOND:
             s->data[0] = (!!s->quad_enable) << 1;
+            s->pos = 0;
+            s->len = 1;
+            s->state = STATE_READING_DATA;
+            break;
+        case MAN_ISSI:
+            s->data[0] = s->status_reg2;
+            s->quad_enable = !!(s->status_reg2 & 0x02) ||
+                             !!(s->status_reg1_raw & 0x40) ||
+                             !!(s->status_reg1_raw & 0x02);
             s->pos = 0;
             s->len = 1;
             s->state = STATE_READING_DATA;
@@ -1852,6 +1909,8 @@ static const VMStateDescription vmstate_m25p80 = {
         VMSTATE_UINT32(volatile_cfg, Flash),
         VMSTATE_UINT32(enh_volatile_cfg, Flash),
         VMSTATE_BOOL(quad_enable, Flash),
+        VMSTATE_UINT8(status_reg1_raw, Flash),
+        VMSTATE_UINT8(status_reg2, Flash),
         VMSTATE_UINT8(spansion_cr1nv, Flash),
         VMSTATE_UINT8(spansion_cr2nv, Flash),
         VMSTATE_UINT8(spansion_cr3nv, Flash),

@@ -150,11 +150,11 @@ static void esp32s3_spi_txrx_buffer(ESP32S3SpiState *s,
     int bytes = MAX(tx_bytes, rx_bytes);
     for (int i = 0; i < bytes; ++i) {
         uint8_t byte = 0;
-        if (byte < tx_bytes) {
+        if (i < tx_bytes) {
             memcpy(&byte, tx + i, 1);
         }
         uint32_t res = ssi_transfer(s->spi, byte);
-        if (byte < rx_bytes) {
+        if (i < rx_bytes) {
             memcpy(rx + i, &res, 1);
         }
     }
@@ -270,6 +270,10 @@ static void esp32s3_spi_begin_transaction(ESP32S3SpiState *s)
         if (s->mem_user & R_SPI_MEM_USER_USR_DUMMY_MASK) {
             esp32s3_spi_get_dummy(s, &t.dummy_bytes);
         }
+    }
+
+    if (t.cmd == 0xeb && t.dummy_bytes < 2) {
+        t.dummy_bytes = 2;
     }
 
     esp32s3_spi_perform_transaction(s, &t);
