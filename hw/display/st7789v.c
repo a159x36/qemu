@@ -334,13 +334,15 @@ static void st7789_update_display(void *opaque) {
         for(int x=0;x<c->width;x++) {
             uint16_t rgb565=c->fb_data[(y+c->y_offset)*320+x+c->x_offset];
             if(c->backlight<255) {
-                uint32_t r=(rgb565>>8) & 0xf8;
-                uint32_t g=(rgb565>>3) & 0xfc;
-                uint32_t b=(rgb565<<2) & 0xf8;
-                r=(r*c->backlight)/256;
-                g=(g*c->backlight)/256;
-                b=(b*c->backlight)/256;
-                rgb565=(uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5)  | ( b >> 3));
+                // Extract native-bit counts
+                uint32_t r = (rgb565 >> 11) & 0x1F;
+                uint32_t g = (rgb565 >> 5) & 0x3F;
+                uint32_t b = rgb565 & 0x1F;
+                // Scale with rounding-to-nearest (add half LSB before shift)
+                r = (r * c->backlight + 127) >> 8;
+                g = (g * c->backlight + 127) >> 8;
+                b = (b * c->backlight + 127) >> 8;
+                rgb565=(uint16_t)((r << 11) | (g << 5) | b);
             }
             uint32_t index=(y+c->skin_y_offset)*c->skin_width+x+c->skin_x_offset;
             if(index<320*320)
