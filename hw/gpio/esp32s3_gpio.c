@@ -992,6 +992,8 @@ static void ESP32S3_GPIO_reset(Object *dev, ResetType type) {
         if(reset_type==4) {
             if(i<32) s->gpio_enable=1<<i; else s->gpio_enable1=1<<(i-32);
         }
+        // Emulate the external pullup resistors on the GPIO0/GPIO14 buttons of the T-Display-S3
+        if (i == 0 || i == 14) v = FIELD_DP32(v, IO_MUX, FUN_WPU, 1);
         s->iomux_regs[i+1]=v;
     }
     for (int i = 0; i < N_GPIOS; i++) {
