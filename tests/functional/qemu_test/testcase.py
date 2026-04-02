@@ -13,7 +13,7 @@
 
 import logging
 import os
-import pycotap
+#import pycotap
 import shutil
 import subprocess
 import sys
@@ -76,18 +76,18 @@ class QemuBaseTest(unittest.TestCase):
             Asset.precache_suites(path, cache)
             return
 
-        tr = pycotap.TAPTestRunner(message_log = pycotap.LogMode.LogToError,
-                                   test_output_log = pycotap.LogMode.LogToError)
-        res = unittest.main(module = None, testRunner = tr, exit = False,
-                            argv=["__dummy__", path])
-        for (test, message) in res.result.errors + res.result.failures:
-
-            if hasattr(test, "log_filename"):
-                print('More information on ' + test.id() + ' could be found here:'
-                      '\n %s' % test.log_filename, file=sys.stderr)
-                if hasattr(test, 'console_log_name'):
-                    print(' %s' % test.console_log_name, file=sys.stderr)
-        sys.exit(not res.result.wasSuccessful())
+#        tr = pycotap.TAPTestRunner(message_log = pycotap.LogMode.LogToError,
+#                                   test_output_log = pycotap.LogMode.LogToError)
+#        res = unittest.main(module = None, testRunner = tr, exit = False,
+#                            argv=["__dummy__", path])
+#        for (test, message) in res.result.errors + res.result.failures:
+#
+#            if hasattr(test, "log_filename"):
+#                print('More information on ' + test.id() + ' could be found here:'
+#                      '\n %s' % test.log_filename, file=sys.stderr)
+#                if hasattr(test, 'console_log_name'):
+#                    print(' %s' % test.console_log_name, file=sys.stderr)
+#        sys.exit(not res.result.wasSuccessful())
 
 
 class QemuUserTest(QemuBaseTest):

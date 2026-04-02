@@ -26,6 +26,7 @@ echo DBG
     --with-suffix="" \
     --enable-fdt=disabled \
     --without-default-features \
+    --enable-download \
 || { cat meson-logs/meson-log.txt && false; }
 
 
