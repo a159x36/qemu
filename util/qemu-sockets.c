@@ -595,7 +595,7 @@ err:
 static int inet_parse_flag(const char *flagname, const char *optstr, bool *val,
                            Error **errp)
 {
-    char *end;
+    const char *end;
     size_t len;
 
     end = strstr(optstr, ",");
@@ -626,7 +626,7 @@ int inet_parse(InetSocketAddress *addr, const char *str, Error **errp)
     char port[33];
     int to;
     int pos;
-    char *begin;
+    const char *begin;
 
     memset(addr, 0, sizeof(*addr));
 

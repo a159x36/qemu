@@ -586,7 +586,7 @@ static char *key_get_info(const char *type, char **key)
         type++;
     }
 
-    p = strchr(type, ':');
+    p = (char *)strchr(type, ':');
     if (!p) {
         *key = NULL;
         return NULL;
