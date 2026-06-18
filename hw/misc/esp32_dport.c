@@ -122,6 +122,9 @@ static uint64_t esp32_dport_read(void *opaque, hwaddr addr, unsigned int size)
     case A_DPORT_SLAVE_SPI_CONFIG:
         r = s->slave_spi_config_reg;
         break;
+    case A_DPORT_WIFI_CLK_EN_REG:
+        r = 0x8f8f;
+        break;
     }
 
     return r;
