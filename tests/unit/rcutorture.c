@@ -240,7 +240,7 @@ int n_mberror;
 /* Updates protected by counts_mutex */
 long long rcu_stress_count[RCU_STRESS_PIPE_LEN + 1];
 
-
+volatile int garbage = 0;
 static void *rcu_read_stress_test(void *arg)
 {
     int i;
@@ -248,7 +248,6 @@ static void *rcu_read_stress_test(void *arg)
     int pc;
     long long n_reads_local = 0;
     long long rcu_stress_local[RCU_STRESS_PIPE_LEN + 1] = { 0 };
-    volatile int garbage = 0;
 
     rcu_register_thread();
 
