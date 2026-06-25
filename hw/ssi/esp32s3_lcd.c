@@ -73,7 +73,6 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
         case A_LCD_CAM_LCD_USER:
             if(FIELD_EX32(wvalue, LCD_CAM_LCD_USER, START)) {
                 const bool send_cmd=FIELD_EX32(wvalue, LCD_CAM_LCD_USER, CMD);
-                const bool send_data=FIELD_EX32(wvalue, LCD_CAM_LCD_USER, DOUT);
                 wvalue=FIELD_DP32(wvalue,LCD_CAM_LCD_USER,START,0);
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 #if LCD_DEBUG
@@ -85,30 +84,28 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                     ssi_transfer(s->lcd, s->cmd_val);
                     qemu_set_irq(s->cmd_gpio,1);
                 }
-                if(send_data) {
-                    BusState *b = BUS(s->lcd);
-                    BusChild *ch = QTAILQ_FIRST(&b->children);
-                    SSIPeripheral *peripheral = SSI_PERIPHERAL(ch->child);
-                    SSIPeripheralClass *ssc = SSI_PERIPHERAL_GET_CLASS(peripheral);
-                    uint32_t gdma_out_idx;
-                    if ( !esp_gdma_get_channel_periph(s->gdma, GDMA_LCDCAM, ESP_GDMA_OUT_IDX, &gdma_out_idx) ) {
-        	            error_report("[LCD_CAM] GDMA requested but no properly configured channel found");
-                        break;
-                    }
-                    uint32_t tr_size=esp_gdma_get_transfer_size(s->gdma, gdma_out_idx);
-                    uint32_t *buffer=(uint32_t *)malloc(tr_size+4);
-                    buffer[(tr_size+3)/4-1]=0;
-                    esp_gdma_read_channel(s->gdma, gdma_out_idx, (uint8_t *)buffer, tr_size);
-                    for (int i = 0; i <(tr_size+3)/4; i++) {
-                        ssc->transfer(peripheral,buffer[i]);
-                    }
-                    free(buffer);
-                    uint64_t ns_to_timeout = tr_size * 140;
-                    if(tr_size>32) {
-                        qemu_irq_lower(s->irq);
-                        timer_mod_ns(&s->lcd_timer, ns_now + ns_to_timeout);
-                        defer_irq=true;
-                    }
+                BusState *b = BUS(s->lcd);
+                BusChild *ch = QTAILQ_FIRST(&b->children);
+                SSIPeripheral *peripheral = SSI_PERIPHERAL(ch->child);
+                SSIPeripheralClass *ssc = SSI_PERIPHERAL_GET_CLASS(peripheral);
+                uint32_t gdma_out_idx;
+                if ( !esp_gdma_get_channel_periph(s->gdma, GDMA_LCDCAM, ESP_GDMA_OUT_IDX, &gdma_out_idx) ) {
+        	        error_report("[LCD_CAM] GDMA requested but no properly configured channel found");
+                    break;
+                }
+                uint32_t tr_size=esp_gdma_get_transfer_size(s->gdma, gdma_out_idx);
+                uint32_t *buffer=(uint32_t *)malloc(tr_size+4);
+                buffer[(tr_size+3)/4-1]=0;
+                esp_gdma_read_channel(s->gdma, gdma_out_idx, (uint8_t *)buffer, tr_size);
+                for (int i = 0; i <(tr_size+3)/4; i++) {
+                    ssc->transfer(peripheral,buffer[i]);
+                }
+                free(buffer);
+                uint64_t ns_to_timeout = tr_size * 140;
+                if(tr_size>32) {
+                    qemu_irq_lower(s->irq);
+                    timer_mod_ns(&s->lcd_timer, ns_now + ns_to_timeout);
+                    defer_irq=true;
                 }
                 if(!defer_irq) {
                     s->int_raw=FIELD_DP32(s->int_raw,LCD_CAM_LC_DMA_INT_RAW,TRANS_DONE_INT_RAW,1);
