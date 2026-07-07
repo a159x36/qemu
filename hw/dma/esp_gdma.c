@@ -935,6 +935,7 @@ uint32_t esp_gdma_get_transfer_size(ESPGdmaState *s, uint32_t chan) {
     uint32_t out_addr = ((ESP_GDMA_RAM_ADDR >> 20) << 20) | FIELD_EX32(state->link, GDMA_OUT_LINK, ADDR);
     esp_gdma_read_descr(s, out_addr, &out_list);
     total+=out_list.config.length;
+    if(total==0) return total;
     while(!out_list.config.suc_eof) {
         out_addr = out_list.next_addr;
         esp_gdma_next_list_node(s, chan, ESP_GDMA_OUT_IDX, &out_list);

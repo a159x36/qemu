@@ -76,7 +76,7 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                 wvalue=FIELD_DP32(wvalue,LCD_CAM_LCD_USER,START,0);
                 uint64_t ns_now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 #if LCD_DEBUG
-    info_report("[LCD_CAM] GDMA start %d %d",send_cmd,send_data);
+    info_report("[LCD_CAM] GDMA start %d",send_cmd);
 #endif
                 bool defer_irq=false;
                 if(send_cmd) {
@@ -94,13 +94,15 @@ static void esp32s3_lcd_write(void *opaque, hwaddr addr,
                     break;
                 }
                 uint32_t tr_size=esp_gdma_get_transfer_size(s->gdma, gdma_out_idx);
-                uint32_t *buffer=(uint32_t *)malloc(tr_size+4);
-                buffer[(tr_size+3)/4-1]=0;
-                esp_gdma_read_channel(s->gdma, gdma_out_idx, (uint8_t *)buffer, tr_size);
-                for (int i = 0; i <(tr_size+3)/4; i++) {
-                    ssc->transfer(peripheral,buffer[i]);
+                if(tr_size!=0) {
+                    uint32_t *buffer=(uint32_t *)malloc(tr_size+4);
+                    buffer[(tr_size+3)/4-1]=0;
+                    esp_gdma_read_channel(s->gdma, gdma_out_idx, (uint8_t *)buffer, tr_size);
+                    for (int i = 0; i <(tr_size+3)/4; i++) {
+                        ssc->transfer(peripheral,buffer[i]);
+                    }
+                    free(buffer);
                 }
-                free(buffer);
                 uint64_t ns_to_timeout = tr_size * 140;
                 if(tr_size>32) {
                     qemu_irq_lower(s->irq);
