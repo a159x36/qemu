@@ -48,7 +48,7 @@ typedef struct ConsoleState {
     int64_t lasttime;
     int lastlevel;
     uint16_t *fb_data;
-    uint16_t *data; // surface data
+    uint32_t *data; // surface data
     int64_t time_off;
     int64_t time_on;
     QEMUTimer backlight_timer;
@@ -107,7 +107,7 @@ extern image_header ttgos3_board_skin;
 
 image_header *board_skin=&ttgos3_board_skin;
 
-
+/*
 static uint16_t argbto565(uint32_t argb)
 {
     uint8_t r = (argb >> 16) & 0xFF;
@@ -120,9 +120,10 @@ static uint16_t argbto565(uint32_t argb)
         ( b >> 3)           // 5 bits blue
     );
 }
+    */
 
 static void draw_skin(ConsoleState *c) {
-    volatile uint16_t *dest = c->data;
+    volatile uint32_t *dest = c->data;
     for (int i = 0; i < board_skin->height; i++)
         for (int j = 0; j < board_skin->width; j++) {
             pixel p = board_skin->pixel_data[i * board_skin->width + j];
@@ -132,11 +133,11 @@ static void draw_skin(ConsoleState *c) {
             uint32_t rgba= (p.a<<24) | (p.r<<16) | (p.g<<8) | p.b;
         //    if (p.a < 200)
         //        rgba=0xff000000;
-            uint16_t rgb565=argbto565(rgba);
+            //uint16_t rgb565=argbto565(rgba);
             if (c->width < c->height)  // portrait
-                dest[i * board_skin->width + j] = rgb565;
+                dest[i * board_skin->width + j] = rgba;
             else
-                dest[(board_skin->width - j - 1) * board_skin->height +i] = rgb565;
+                dest[(board_skin->width - j - 1) * board_skin->height +i] = rgba;
         }
     dpy_gfx_update_full(c->con);
 }
@@ -164,8 +165,8 @@ static void set_portrait(St7789vState *s) {
     qemu_console_resize(c->con, board_skin->width,
                         board_skin->height);
     DisplaySurface *surface=qemu_create_displaysurface_from(board_skin->width, board_skin->height,
-                                                PIXMAN_r5g6b5,
-                                                board_skin->width*2, NULL);
+                                                PIXMAN_x8r8g8b8,
+                                                board_skin->width*4, NULL);
     dpy_gfx_replace_surface(c->con,surface);
 
     c->data=surface_data(qemu_console_surface(c->con));
@@ -196,8 +197,8 @@ static void set_landscape(St7789vState *s) {
     qemu_console_resize(c->con, board_skin->height,
                     board_skin->width);
     DisplaySurface *surface=qemu_create_displaysurface_from(board_skin->height, board_skin->width,
-                                                PIXMAN_r5g6b5,
-                                                board_skin->height*2, NULL);
+                                                PIXMAN_x8r8g8b8,
+                                                board_skin->height*4, NULL);
     dpy_gfx_replace_surface(c->con,surface);
     c->data=surface_data(qemu_console_surface(c->con));
     c->width = PANEL_WIDTH;
@@ -333,20 +334,26 @@ static void st7789_update_display(void *opaque) {
     for(int y=0;y<c->height;y++) {
         for(int x=0;x<c->width;x++) {
             uint16_t rgb565=c->fb_data[(y+c->y_offset)*320+x+c->x_offset];
+            uint32_t rgba;
             if(c->backlight<255) {
                 // Extract native-bit counts
-                uint32_t r = (rgb565 >> 11) & 0x1F;
-                uint32_t g = (rgb565 >> 5) & 0x3F;
-                uint32_t b = rgb565 & 0x1F;
+                uint32_t r = ((rgb565 >> 11) & 0x1F)<<3;
+                uint32_t g = ((rgb565 >> 5) & 0x3F)<<2;
+                uint32_t b = (rgb565 & 0x1F)<<3;
                 // Scale with rounding-to-nearest (add half LSB before shift)
                 r = (r * c->backlight + 127) >> 8;
                 g = (g * c->backlight + 127) >> 8;
                 b = (b * c->backlight + 127) >> 8;
-                rgb565=(uint16_t)((r << 11) | (g << 5) | b);
+                rgba=(255<<24) | (r<<16) | (g<<8) | b;
+            } else {
+                uint32_t r = (((rgb565 >> 11) & 0x1F)<<3) | 7;
+                uint32_t g = (((rgb565 >> 5) & 0x3F)<<2) | 3;
+                uint32_t b = ((rgb565 & 0x1F)<<3) | 7;
+                rgba=(255<<24) | (r<<16) | (g<<8) | b;
             }
             uint32_t index=(y+c->skin_y_offset)*c->skin_width+x+c->skin_x_offset;
             if(index<320*320)
-              c->data[index]=rgb565;
+              c->data[index]=rgba;
         }
     }
     dpy_gfx_update(c->con, c->skin_x_offset, c->skin_y_offset, c->width, c->height);
